@@ -1,0 +1,44 @@
+[
+  {
+    "id": "q1",
+    "question": "What is a Python decorator?",
+    "expected_answer": "A decorator is a function that takes another function and extends its behavior without modifying it.",
+    "should_answer": true,
+    "domain": "python_basics"
+  },
+  {
+    "id": "q2",
+    "question": "What is the difference between lists and tuples in Python?",
+    "expected_answer": "Lists are ordered, mutable collections, while tuples are ordered, immutable collections.",
+    "should_answer": true,
+    "domain": "python_basics"
+  },
+  {
+    "id": "q3",
+    "question": "How do generators work in Python?",
+    "expected_answer": "Generators yield values one at a time allowing lazy evaluation and memory efficiency.",
+    "should_answer": true,
+    "domain": "python_advanced"
+  },
+  {
+    "id": "q4",
+    "question": "What is the Global Interpreter Lock (GIL)?",
+    "expected_answer": "The GIL is a mutex in CPython that allows only one thread to execute Python bytecode at a time.",
+    "should_answer": true,
+    "domain": "python_advanced"
+  },
+  {
+    "id": "q5",
+    "question": "What is the distance to Mars and its surface gravity?",
+    "expected_answer": "I don't have enough information to answer this question.",
+    "should_answer": false,
+    "domain": "out_of_domain"
+  },
+  {
+    "id": "q6",
+    "question": "Who won the FIFA World Cup in 2022?",
+    "expected_answer": "I don't have enough information to answer this question.",
+    "should_answer": false,
+    "domain": "out_of_domain"
+  }
+]

@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>s@r@h — Autonomous Knowledge & RAG Host</title>
+  <link rel="stylesheet" href="/static/css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <!-- 3D Particle Background Canvas -->
+  <canvas id="bg-canvas"></canvas>
+
+  <div class="app-container">
+    <!-- Modern Glassmorphic Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-logo">🌟</div>
+        <div>
+          <div class="brand-title">s@r@h</div>
+          <span class="brand-badge">Autonomous Host</span>
+        </div>
+      </div>
+
+      <ul class="nav-links">
+        <li class="nav-item active" data-view="chat">
+          <span>💬</span> Chat with s@r@h
+        </li>
+        <li class="nav-item" data-view="graph">
+          <span>🕸️</span> 3D Knowledge Graph
+        </li>
+        <li class="nav-item" data-view="telemetry">
+          <span>📊</span> Quality & Telemetry
+        </li>
+        <li class="nav-item" data-view="memory">
+          <span>🧠</span> Memory & Profile
+        </li>
+        <li class="nav-item" data-view="knowledge">
+          <span>📁</span> Knowledge Studio
+        </li>
+      </ul>
+
+      <div class="user-profile">
+        <div class="user-info">
+          <div class="user-avatar">R</div>
+          <div>
+            <div style="font-size: 13px; font-weight: 600;">Rishi</div>
+            <div style="font-size: 11px; color: var(--text-muted);">Lead AI Engineer</div>
+          </div>
+        </div>
+        <span style="font-size: 16px; cursor: pointer;">⚙️</span>
+      </div>
+    </aside>
+
+    <!-- Main Workspace -->
+    <main class="workspace">
+      <!-- Top Status Header -->
+      <header class="top-bar">
+        <div class="system-status">
+          <span class="status-dot"></span>
+          <span style="font-size: 13.5px; font-weight: 500; color: var(--text-secondary);">
+            s@r@h v3.0 <span style="color: var(--accent-cyan);">ONLINE</span> (CPU-Optimized)
+          </span>
+        </div>
+
+        <div class="quick-stats">
+          <div class="stat-pill">Vector Chunks: <span id="top-chunks-count">18</span></div>
+          <div class="stat-pill">Graph Triples: <span id="top-triples-count">36</span></div>
+          <div class="stat-pill">Cache Hit: <span id="top-cache-rate">100%</span></div>
+          <div class="stat-pill">LLM: <span id="top-llm-provider">local</span></div>
+        </div>
+      </header>
+
+      <!-- VIEW 1: Chat Workspace -->
+      <section id="view-chat" class="view-section active">
+        <div class="chat-container">
+          <div id="chat-messages-list" class="messages-list">
+            <!-- Initial Welcome Message -->
+            <div class="msg-row bot">
+              <div class="msg-avatar">🌟</div>
+              <div class="msg-content">
+                <div class="badge-row">
+                  <span class="badge pass">🛡️ Tri-Guardrails Active</span>
+                  <span class="badge" style="background: rgba(168,85,247,0.15); color: var(--accent-violet)">🕸️ GraphRAG Enabled</span>
+                </div>
+                <p>Hello! I am <strong>s@r@h</strong> (<em>Self-Adaptive Reasoning & Retrieval Autonomous Host</em>).</p>
+                <p style="margin-top: 6px; color: var(--text-secondary);">I am powered by an enterprise 10-pillar architecture combining <strong>Hybrid Search</strong>, <strong>GraphRAG 3D</strong>, <strong>Persistent Memory</strong>, and <strong>NLI Guardrails</strong>.</p>
+                <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
+                  <button onclick="document.getElementById('chat-query-input').value = this.innerText; document.getElementById('btn-chat-send').click();" style="padding: 6px 12px; border-radius: 8px; background: rgba(255,255,255,0.06); border: 1px solid var(--border-glass); color: var(--accent-cyan); font-size: 12px; cursor: pointer;">How does DeepSeek R1 reasoning work?</button>
+                  <button onclick="document.getElementById('chat-query-input').value = this.innerText; document.getElementById('btn-chat-send').click();" style="padding: 6px 12px; border-radius: 8px; background: rgba(255,255,255,0.06); border: 1px solid var(--border-glass); color: var(--accent-cyan); font-size: 12px; cursor: pointer;">Explain LoRA parameter-efficient fine tuning</button>
+                  <button onclick="document.getElementById('chat-query-input').value = this.innerText; document.getElementById('btn-chat-send').click();" style="padding: 6px 12px; border-radius: 8px; background: rgba(255,255,255,0.06); border: 1px solid var(--border-glass); color: var(--accent-cyan); font-size: 12px; cursor: pointer;">Compare Python generators and list comprehensions</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Chat Input Bar -->
+          <div class="chat-input-bar">
+            <input type="text" id="chat-query-input" placeholder="Ask s@r@h anything about AI/ML models, architectures, or code..." autocomplete="off" />
+            <button id="btn-chat-send" class="btn-send">➔</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 2: 3D Knowledge Graph -->
+      <section id="view-graph" class="view-section">
+        <div>
+          <h2 style="font-size: 24px; font-weight: 700;">🕸️ 3D Knowledge Graph Universe</h2>
+          <p style="color: var(--text-secondary); font-size: 14px; margin-top: 4px;">GraphRAG traverses multi-hop entity relationships across Transformers, LLMs, LoRA, and Systems.</p>
+        </div>
+
+        <div style="display: flex; gap: 24px; width: 100%;">
+          <div style="flex: 1;">
+            <canvas id="graph-canvas"></canvas>
+            <p style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">💡 <em>Drag nodes to rearrange physics layout. Hover and click nodes to inspect connected relationships.</em></p>
+          </div>
+          <div class="glass-card" style="width: 320px; height: 580px; overflow-y: auto;" id="graph-node-details">
+            <h4 style="color: var(--accent-cyan); margin-bottom: 8px;">🔹 Entity Inspector</h4>
+            <p style="font-size: 13px; color: var(--text-secondary);">Click on any node in the 3D graph to inspect its multi-hop relational connections.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 3: Quality & Telemetry -->
+      <section id="view-telemetry" class="view-section">
+        <div>
+          <h2 style="font-size: 24px; font-weight: 700;">📊 Real-Time Quality & Drift Telemetry</h2>
+          <p style="color: var(--text-secondary); font-size: 14px; margin-top: 4px;">Continuous production monitoring of NLI faithfulness, hallucination drift, and latency percentiles.</p>
+        </div>
+
+        <div class="card-grid">
+          <div class="glass-card">
+            <div style="color: var(--text-muted); font-size: 13px;">Total Inferences</div>
+            <div id="telemetry-total-q" style="font-size: 32px; font-weight: 700; color: var(--text-primary); margin-top: 8px;">0</div>
+          </div>
+          <div class="glass-card">
+            <div style="color: var(--text-muted); font-size: 13px;">Avg Faithfulness</div>
+            <div id="telemetry-avg-faith" style="font-size: 32px; font-weight: 700; color: var(--accent-emerald); margin-top: 8px;">100%</div>
+          </div>
+          <div class="glass-card">
+            <div style="color: var(--text-muted); font-size: 13px;">Hallucination Drift Rate</div>
+            <div id="telemetry-drift-rate" style="font-size: 32px; font-weight: 700; color: var(--accent-cyan); margin-top: 8px;">0%</div>
+          </div>
+          <div class="glass-card">
+            <div style="color: var(--text-muted); font-size: 13px;">Avg Latency</div>
+            <div id="telemetry-avg-latency" style="font-size: 32px; font-weight: 700; color: var(--accent-violet); margin-top: 8px;">0 ms</div>
+          </div>
+        </div>
+
+        <div class="glass-card" style="margin-top: 12px;">
+          <h3 style="font-size: 16px; margin-bottom: 16px;">📜 Real-Time Production Query Stream</h3>
+          <table style="width: 100%; border-collapse: collapse; font-size: 13.5px; text-align: left;">
+            <thead>
+              <tr style="color: var(--text-muted); border-bottom: 1px solid var(--border-glass);">
+                <th style="padding: 10px;">Time</th>
+                <th style="padding: 10px;">Question</th>
+                <th style="padding: 10px;">Faithfulness</th>
+                <th style="padding: 10px;">Guardrail</th>
+                <th style="padding: 10px;">Cache</th>
+                <th style="padding: 10px;">Latency</th>
+              </tr>
+            </thead>
+            <tbody id="telemetry-logs-table">
+              <tr>
+                <td colspan="6" style="padding: 20px; text-align: center; color: var(--text-muted);">No logs yet. Ask queries in the Chat tab!</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- VIEW 4: Memory & Profile -->
+      <section id="view-memory" class="view-section">
+        <div>
+          <h2 style="font-size: 24px; font-weight: 700;">🧠 Memory & Personalization Vault</h2>
+          <p style="color: var(--text-secondary); font-size: 14px; margin-top: 4px;">Persistent SQLite memory retains user preferences and conversation turns across sessions.</p>
+        </div>
+
+        <div class="card-grid">
+          <div class="glass-card" style="grid-column: span 2;">
+            <h3 style="font-size: 16px; margin-bottom: 14px;">👤 Authoritative User Facts & Preferences</h3>
+            <div id="memory-facts-list" style="display: flex; flex-direction: column; gap: 10px;">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 5: Knowledge Studio -->
+      <section id="view-knowledge" class="view-section">
+        <div>
+          <h2 style="font-size: 24px; font-weight: 700;">📁 Knowledge Studio & Ingestion</h2>
+          <p style="color: var(--text-secondary); font-size: 14px; margin-top: 4px;">Index multi-format documents (PDF, Markdown, Code) into ChromaDB, BM25, and GraphRAG.</p>
+        </div>
+
+        <div class="glass-card">
+          <h3 style="font-size: 16px; margin-bottom: 12px;">📚 Pre-Loaded AI/ML/LLM Knowledge Corpus</h3>
+          <p style="color: var(--text-secondary); font-size: 14px; line-height: 1.6;">
+            Includes comprehensive textbooks and research summaries:
+            <br />• <code>ai_ml_foundations.md</code> (Transformers, Attention, RoPE, RMSNorm, LoRA, GRPO)
+            <br />• <code>llm_evolution_2018_2026.md</code> (GPT-1 to GPT-5, Claude 4.6, DeepSeek R1/V4, LLaMA 4)
+            <br />• <code>rag_and_graphrag_systems.md</code> (Hybrid Search, RRF, Cross-Encoder, GraphRAG)
+            <br />• <code>algorithms_system_design.md</code> (HNSW, IVF-PQ, PagedAttention, KV Caching)
+            <br />• <code>python_basics.md</code> & <code>python_advanced.md</code>
+          </p>
+
+          <button id="btn-ingest-corpus" style="margin-top: 20px; padding: 14px 24px; border-radius: 12px; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-violet)); border: none; color: #fff; font-weight: 600; font-size: 14px; cursor: pointer; box-shadow: var(--glow-cyan);">
+            📥 Ingest Entire AI/ML Corpus
+          </button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/js/particles.js"></script>
+  <script src="/static/js/graph3d.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

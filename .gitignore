@@ -1,0 +1,29 @@
+# Python & Virtual Environment
+.venv/
+venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Local Vector Store & SQLite Databases
+data/chroma_db/
+data/memory.sqlite
+data/knowledge_graph.sqlite
+data/telemetry.sqlite
+data/auth_vault.sqlite
+*.sqlite3
+*.sqlite
+
+# Environment variables & keys
+.env
+.env.local
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
