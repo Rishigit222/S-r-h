@@ -1,6 +1,6 @@
 /**
  * s@r@h Front-End Application Controller
- * Handles Chat streaming, 3D Graph integration, Telemetry, Memory, and Meta-RAG Evolution.
+ * Handles Chat streaming, 3D Graph integration, Telemetry, Memory, Meta-RAG, and Settings Studio.
  */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -30,17 +30,251 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  // --- Settings Modal Controller ---
+  const settingsModal = document.getElementById("settings-modal-backdrop");
+  const btnOpenSettingsHeader = document.getElementById("btn-open-settings-header");
+  const btnOpenSettingsSidebar = document.getElementById("btn-open-settings-sidebar");
+  const btnCloseSettings = document.getElementById("btn-close-settings");
+
+  function openSettings() {
+    loadUserSettings();
+    settingsModal.classList.add("open");
+  }
+
+  function closeSettings() {
+    settingsModal.classList.remove("open");
+  }
+
+  if (btnOpenSettingsHeader) btnOpenSettingsHeader.addEventListener("click", openSettings);
+  if (btnOpenSettingsSidebar) btnOpenSettingsSidebar.addEventListener("click", openSettings);
+  if (btnCloseSettings) btnCloseSettings.addEventListener("click", closeSettings);
+
+  settingsModal.addEventListener("click", (e) => {
+    if (e.target === settingsModal) closeSettings();
+  });
+
+  // Settings Tab Switching
+  const settingsNavBtns = document.querySelectorAll(".settings-nav-btn");
+  const settingsPanes = document.querySelectorAll(".settings-pane");
+
+  settingsNavBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      settingsNavBtns.forEach((b) => b.classList.remove("active"));
+      settingsPanes.forEach((p) => p.classList.remove("active"));
+
+      btn.classList.add("active");
+      const tabId = btn.getAttribute("data-tab");
+      const targetPane = document.getElementById(`pane-${tabId}`);
+      if (targetPane) targetPane.classList.add("active");
+    });
+  });
+
+  // Load User Settings from Backend
+  async function loadUserSettings() {
+    try {
+      const res = await fetch(`/settings/profile?session_id=${sessionId}`);
+      const data = await res.json();
+      if (data) {
+        // Update inputs
+        document.getElementById("settings-user-info").value = data.custom_instructions_user || "";
+        document.getElementById("settings-style-info").value = data.custom_instructions_style || "";
+        document.getElementById("settings-reasoning-effort").value = data.reasoning_effort || "high";
+        document.getElementById("settings-toggle-autorefine").checked = data.auto_refine_enabled !== false;
+        document.getElementById("settings-toggle-particles").checked = data.particles_enabled !== false;
+
+        // Update Tier UI
+        updateTierUI(data.subscription_tier);
+        if (data.theme_accent) applyTheme(data.theme_accent);
+      }
+    } catch (e) {
+      console.warn("Failed to load user settings:", e);
+    }
+  }
+
+  function updateTierUI(tier) {
+    const sidebarBadge = document.getElementById("sidebar-tier-badge");
+    const topBadge = document.getElementById("top-plan-badge");
+    const btnFree = document.getElementById("btn-plan-free");
+    const btnPro = document.getElementById("btn-plan-pro");
+
+    if (tier === "pro" || tier === "enterprise") {
+      sidebarBadge.innerText = "🌟 Pro Tier";
+      sidebarBadge.className = "brand-badge pro";
+      topBadge.innerText = "Pro Plan";
+      topBadge.style.color = "var(--accent-cyan)";
+      btnFree.innerText = "Downgrade to Free";
+      btnFree.className = "btn-tier";
+      btnPro.innerText = "✓ Active Plan";
+      btnPro.className = "btn-tier active-plan";
+    } else {
+      sidebarBadge.innerText = "Free Tier";
+      sidebarBadge.className = "brand-badge";
+      topBadge.innerText = "Free";
+      topBadge.style.color = "var(--accent-amber)";
+      btnFree.innerText = "Current Plan";
+      btnFree.className = "btn-tier active-plan";
+      btnPro.innerText = "Upgrade to Pro ➔";
+      btnPro.className = "btn-tier upgrade";
+    }
+  }
+
+  // Switch Subscription Tier (Global function)
+  window.switchPlan = async function (targetTier) {
+    try {
+      const res = await fetch("/settings/tier/upgrade", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target_tier: targetTier }),
+      });
+      const data = await res.json();
+      updateTierUI(data.current_tier);
+      alert(data.message);
+      refreshSystemHealth();
+    } catch (e) {
+      alert("Error updating plan: " + e.message);
+    }
+  };
+
+  // Save Custom Persona Instructions
+  const btnSaveCustom = document.getElementById("btn-save-custom-instructions");
+  if (btnSaveCustom) {
+    btnSaveCustom.addEventListener("click", async () => {
+      btnSaveCustom.innerText = "Saving...";
+      try {
+        const userInfo = document.getElementById("settings-user-info").value.trim();
+        const styleInfo = document.getElementById("settings-style-info").value.trim();
+        const effort = document.getElementById("settings-reasoning-effort").value;
+        const autoRefine = document.getElementById("settings-toggle-autorefine").checked;
+
+        await fetch("/settings/profile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            custom_instructions_user: userInfo,
+            custom_instructions_style: styleInfo,
+            reasoning_effort: effort,
+            auto_refine_enabled: autoRefine,
+          }),
+        });
+        alert("✓ Custom instructions and preferences saved successfully!");
+      } catch (e) {
+        alert("Error saving settings: " + e.message);
+      } finally {
+        btnSaveCustom.innerText = "Save Preferences";
+      }
+    });
+  }
+
+  // Save API Keys Vault
+  const btnSaveKeys = document.getElementById("btn-save-api-keys");
+  if (btnSaveKeys) {
+    btnSaveKeys.addEventListener("click", async () => {
+      btnSaveKeys.innerText = "Encrypting & Storing...";
+      try {
+        const openai = document.getElementById("vault-openai-key").value.trim();
+        const anthropic = document.getElementById("vault-anthropic-key").value.trim();
+        const gemini = document.getElementById("vault-gemini-key").value.trim();
+        const groq = document.getElementById("vault-groq-key").value.trim();
+
+        await fetch("/auth/keys", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            openai_api_key: openai || undefined,
+            anthropic_api_key: anthropic || undefined,
+            google_api_key: gemini || undefined,
+            groq_api_key: groq || undefined,
+          }),
+        });
+        alert("✓ API keys securely stored in local auth vault!");
+      } catch (e) {
+        alert("Error saving keys: " + e.message);
+      } finally {
+        btnSaveKeys.innerText = "Save Keys to Vault";
+      }
+    });
+  }
+
+  // Clear Cache Action
+  window.clearCacheAction = async function () {
+    if (!confirm("Are you sure you want to purge the semantic cache?")) return;
+    try {
+      const res = await fetch("/settings/cache/clear", { method: "POST" });
+      const data = await res.json();
+      alert(data.message);
+      refreshSystemHealth();
+    } catch (e) {
+      alert("Error clearing cache: " + e.message);
+    }
+  };
+
+  // Clear Memory Action
+  window.clearMemoryAction = async function () {
+    if (!confirm("Are you sure you want to clear episodic session history?")) return;
+    try {
+      const res = await fetch("/settings/memory/clear", { method: "POST" });
+      const data = await res.json();
+      alert(data.message);
+      loadMemory();
+    } catch (e) {
+      alert("Error clearing memory: " + e.message);
+    }
+  };
+
+  // Theme Accent Switcher
+  window.setThemeAccent = async function (accent) {
+    applyTheme(accent);
+    try {
+      await fetch("/settings/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ theme_accent: accent }),
+      });
+    } catch (e) {}
+  };
+
+  function applyTheme(accent) {
+    const root = document.documentElement;
+    const colorBtns = document.querySelectorAll(".theme-color-btn");
+    colorBtns.forEach((b) => b.classList.remove("active"));
+
+    if (accent === "violet") {
+      root.style.setProperty("--accent-cyan", "#c084fc");
+      root.style.setProperty("--border-glass-glow", "rgba(192, 132, 252, 0.35)");
+      root.style.setProperty("--glow-cyan", "0 0 25px rgba(192, 132, 252, 0.25)");
+    } else if (accent === "emerald") {
+      root.style.setProperty("--accent-cyan", "#10b981");
+      root.style.setProperty("--border-glass-glow", "rgba(16, 185, 129, 0.35)");
+      root.style.setProperty("--glow-cyan", "0 0 25px rgba(16, 185, 129, 0.25)");
+    } else if (accent === "amber") {
+      root.style.setProperty("--accent-cyan", "#f59e0b");
+      root.style.setProperty("--border-glass-glow", "rgba(245, 158, 11, 0.35)");
+      root.style.setProperty("--glow-cyan", "0 0 25px rgba(245, 158, 11, 0.25)");
+    } else {
+      root.style.setProperty("--accent-cyan", "#00f0ff");
+      root.style.setProperty("--border-glass-glow", "rgba(0, 240, 255, 0.35)");
+      root.style.setProperty("--glow-cyan", "0 0 25px rgba(0, 240, 255, 0.25)");
+    }
+  }
+
+  // Toggle Particles
+  window.toggleParticles = function (enabled) {
+    const canvas = document.getElementById("bg-canvas");
+    if (canvas) canvas.style.display = enabled ? "block" : "none";
+  };
+
   // --- System Health Header Check ---
   async function refreshSystemHealth() {
     try {
       const res = await fetch("/health");
       const data = await res.json();
       if (data) {
-        document.getElementById("top-chunks-count").innerText = data.vector_store_count || "0";
-        document.getElementById("top-triples-count").innerText = data.graph_triples_count || "0";
         document.getElementById("top-llm-provider").innerText = data.llm_provider || "local";
         if (data.generation_version) {
           document.getElementById("top-gen-version").innerText = `v${data.generation_version}`;
+        }
+        if (data.subscription_tier) {
+          updateTierUI(data.subscription_tier);
         }
         if (data.cache_stats) {
           document.getElementById("top-cache-rate").innerText = `${data.cache_stats.hit_rate_pct}%`;

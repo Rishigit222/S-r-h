@@ -1,4 +1,4 @@
-"""FastAPI application — s@r@h: Self-Adaptive Reasoning & Retrieval Autonomous Host with Meta-RAG."""
+"""FastAPI application — s@r@h: Self-Adaptive Reasoning & Retrieval Autonomous Host with Meta-RAG & Settings Studio."""
 
 import time
 import uuid
@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from src.config import settings
@@ -39,11 +39,14 @@ from src.evolution.self_optimizer import self_optimizer
 from src.evolution.synthetic_trainer import synthetic_trainer
 from src.evolution.meta_modifier import rag_meta_modifier
 
+# Settings & Subscription Suite
+from src.api.settings import settings_manager, UserProfileUpdateRequest, TierUpgradeRequest
+
 
 app = FastAPI(
     title="s@r@h — Autonomous Knowledge & Meta-RAG Host",
-    description="s@r@h: Self-Adaptive Reasoning & Retrieval Autonomous Host with 3D GraphRAG, Meta-Learning, and External RAG Modifier.",
-    version="4.0.0",
+    description="s@r@h: Self-Adaptive Reasoning & Retrieval Autonomous Host with 3D GraphRAG, Meta-Learning, Settings Suite & External RAG Modifier.",
+    version="4.1.0",
 )
 
 # Mount Static Files for Modern UI
@@ -105,6 +108,7 @@ class HealthResponse(BaseModel):
     status: str
     engine_name: str
     generation_version: int
+    subscription_tier: str
     vector_store_count: int
     graph_triples_count: int
     llm_provider: str
@@ -131,10 +135,12 @@ async def serve_index():
 @app.get("/health", response_model=HealthResponse)
 async def health():
     vector_store, _ = _get_stores()
+    user_s = settings_manager.get_settings("user_session_01")
     return HealthResponse(
         status="healthy",
         engine_name="s@r@h",
         generation_version=self_optimizer.params.generation_version,
+        subscription_tier=user_s.subscription_tier,
         vector_store_count=vector_store.count(),
         graph_triples_count=knowledge_graph.count(),
         llm_provider=settings.get_effective_provider(),
@@ -146,6 +152,50 @@ async def health():
             "relevance_threshold": self_optimizer.params.relevance_threshold,
             "rrf_k": self_optimizer.params.rrf_k,
         },
+    )
+
+
+# --- Settings & Pro Tier Endpoints ---
+
+@app.get("/settings/profile")
+async def get_user_settings(session_id: str = "user_session_01"):
+    """Fetch current user profile, subscription tier, custom instructions, and preferences."""
+    return settings_manager.get_settings(session_id)
+
+
+@app.post("/settings/profile")
+async def update_user_settings(req: UserProfileUpdateRequest, session_id: str = "user_session_01"):
+    """Update custom persona instructions, reasoning effort, auto-refine preference, or theme."""
+    return settings_manager.update_profile(session_id, req)
+
+
+@app.post("/settings/tier/upgrade")
+async def upgrade_tier(req: TierUpgradeRequest, session_id: str = "user_session_01"):
+    """Upgrade or switch subscription tier (e.g. Free ➔ Pro ($20/mo) ➔ Enterprise)."""
+    return settings_manager.upgrade_tier(session_id, req.target_tier)
+
+
+@app.post("/settings/cache/clear")
+async def clear_cache():
+    """Purge in-memory and persistent semantic cache."""
+    semantic_cache.clear()
+    return {"status": "cleared", "message": "Semantic cache purged successfully."}
+
+
+@app.post("/settings/memory/clear")
+async def clear_memory(session_id: str = "user_session_01"):
+    """Clear episodic chat turns and session history."""
+    memory_store.clear_history(session_id)
+    return {"status": "cleared", "session_id": session_id, "message": "Episodic memory cleared."}
+
+
+@app.get("/settings/export")
+async def export_data(session_id: str = "user_session_01"):
+    """Download comprehensive JSON archive of user memory, telemetry logs, and graph triples."""
+    data = settings_manager.export_full_data_archive(session_id)
+    return JSONResponse(
+        content=data,
+        headers={"Content-Disposition": f"attachment; filename=sarah_export_{session_id}.json"}
     )
 
 
@@ -291,6 +341,7 @@ async def upload_document(file: UploadFile = File(...)):
 async def query(request: QueryRequest):
     tracer = QueryTracer(trace_id=str(uuid.uuid4()), query=request.question)
     vector_store, bm25_store = _get_stores()
+    user_settings = settings_manager.get_settings(request.session_id)
 
     # 1. Security Audit
     sec_audit = security_sanitizer.audit_input_query(request.question)
@@ -307,7 +358,7 @@ async def query(request: QueryRequest):
 
     sanitized_query = sec_audit.sanitized_text
 
-    # Record to Memory Agent immediately for user entity extraction (Option B)
+    # Record to Memory Agent immediately for user entity extraction
     memory_store.add_message(request.session_id, "user", request.question)
     user_facts = memory_store.get_user_facts(request.session_id)
     history = memory_store.get_recent_history(request.session_id, limit=4)
@@ -436,7 +487,7 @@ async def query(request: QueryRequest):
                 trace=trace_dict,
             )
 
-        # Inject Graph Triples into context for generation if available
+        # Inject Graph Triples & Custom Persona Instructions into context
         generation_context = list(reranked)
         if graph_triples:
             graph_chunk = {
@@ -445,6 +496,15 @@ async def query(request: QueryRequest):
                 "metadata": {"source": "s@r@h Knowledge Graph"},
             }
             generation_context.append(graph_chunk)
+
+        # Append Custom User Persona Instructions if set
+        if user_settings.custom_instructions_user or user_settings.custom_instructions_style:
+            custom_chunk = {
+                "chunk_id": "custom_instructions",
+                "content": f"User Persona & Preference Context:\n- Background: {user_settings.custom_instructions_user}\n- Output Style: {user_settings.custom_instructions_style}",
+                "metadata": {"source": "User Settings & Persona"},
+            }
+            generation_context.append(custom_chunk)
 
         # Step 9: LLM Generation
         rag_response = generate_answer(current_query, generation_context)
@@ -502,6 +562,13 @@ async def query(request: QueryRequest):
                 guardrail_passed=True, cache_hit=False, multi_hop_used=decomp.is_complex,
                 latency_ms=final_response["trace"]["total_duration_ms"]
             )
+
+            # Autonomous Auto-Refine trigger if enabled
+            if user_settings.auto_refine_enabled:
+                summary = drift_monitor.get_summary_metrics()
+                if summary.get("total_queries", 0) % 10 == 0:
+                    self_optimizer.auto_tune()
+
             return QueryResponse(**final_response)
 
         # Self-Heal loop

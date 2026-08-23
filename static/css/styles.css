@@ -112,6 +112,13 @@ body {
   color: var(--accent-cyan);
 }
 
+.brand-badge.pro {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.3), rgba(245, 158, 11, 0.3));
+  border-color: var(--accent-amber);
+  color: var(--accent-amber);
+  font-weight: 700;
+}
+
 .nav-links {
   list-style: none;
   display: flex;
@@ -156,6 +163,13 @@ body {
   background: var(--bg-card);
   border: 1px solid var(--border-glass);
   border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.user-profile:hover {
+  border-color: var(--border-glass-glow);
+  background: var(--bg-card-hover);
 }
 
 .user-info {
@@ -221,7 +235,8 @@ body {
 
 .quick-stats {
   display: flex;
-  gap: 20px;
+  align-items: center;
+  gap: 14px;
 }
 
 .stat-pill {
@@ -236,6 +251,26 @@ body {
 .stat-pill span {
   color: var(--accent-cyan);
   font-weight: 600;
+}
+
+.btn-settings-header {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-glass);
+  padding: 6px 14px;
+  border-radius: 10px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.btn-settings-header:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--border-glass-glow);
 }
 
 /* View Sections */
@@ -339,6 +374,7 @@ body {
 }
 
 .badge.pass { background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); border: 1px solid rgba(16, 185, 129, 0.3); }
+.badge.fail { background: rgba(244, 63, 94, 0.15); color: var(--accent-rose); border: 1px solid rgba(244, 63, 94, 0.3); }
 .badge.cache { background: rgba(0, 240, 255, 0.15); color: var(--accent-cyan); border: 1px solid rgba(0, 240, 255, 0.3); }
 .badge.multi { background: rgba(168, 85, 247, 0.15); color: var(--accent-violet); border: 1px solid rgba(168, 85, 247, 0.3); }
 
@@ -413,6 +449,288 @@ body {
   border-radius: 16px;
   background: rgba(8, 11, 20, 0.8);
   border: 1px solid var(--border-glass-glow);
+}
+
+/* ==========================================================================
+   ChatGPT / Claude / DeepSeek Style Settings & Account Modal
+   ========================================================================== */
+
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 100;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  animation: fade-in 0.2s ease-out;
+}
+
+.modal-backdrop.open {
+  display: flex;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.settings-modal {
+  width: 860px;
+  max-width: 95vw;
+  height: 600px;
+  max-height: 90vh;
+  background: rgba(12, 16, 28, 0.95);
+  border: 1px solid var(--border-glass-glow);
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(0, 240, 255, 0.15);
+  display: flex;
+  overflow: hidden;
+  position: relative;
+}
+
+.settings-sidebar {
+  width: 220px;
+  background: rgba(7, 10, 18, 0.85);
+  border-right: 1px solid var(--border-glass);
+  padding: 20px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s;
+}
+
+.settings-nav-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+}
+
+.settings-nav-btn.active {
+  background: rgba(0, 240, 255, 0.12);
+  color: var(--accent-cyan);
+  font-weight: 600;
+  border: 1px solid rgba(0, 240, 255, 0.3);
+}
+
+.settings-content {
+  flex: 1;
+  padding: 28px 32px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.settings-pane {
+  display: none;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.settings-pane.active {
+  display: flex;
+}
+
+.modal-close-btn {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 20px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.modal-close-btn:hover {
+  color: var(--text-primary);
+}
+
+/* Pricing Tier Cards */
+.tier-cards-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 10px;
+}
+
+.tier-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-glass);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 16px;
+  transition: all 0.25s;
+}
+
+.tier-card.featured {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(0, 240, 255, 0.08));
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 25px rgba(0, 240, 255, 0.15);
+}
+
+.tier-header h3 {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.tier-price {
+  font-size: 24px;
+  font-weight: 800;
+  margin: 6px 0;
+  color: var(--text-primary);
+}
+
+.tier-features {
+  list-style: none;
+  font-size: 13px;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tier-features li::before {
+  content: "✓ ";
+  color: var(--accent-emerald);
+  font-weight: bold;
+}
+
+.btn-tier {
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: none;
+  font-weight: 600;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-tier.active-plan {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.btn-tier.upgrade {
+  background: linear-gradient(135deg, var(--accent-cyan), var(--accent-violet));
+  color: #fff;
+  box-shadow: var(--glow-cyan);
+}
+
+.btn-tier.upgrade:hover {
+  transform: scale(1.02);
+}
+
+/* Switch Toggle */
+.switch-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-glass);
+  border-radius: 12px;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.switch input { opacity: 0; width: 0; height: 0; }
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #334155;
+  transition: .3s;
+  border-radius: 24px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .3s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: var(--accent-cyan);
+}
+
+input:checked + .slider:before {
+  transform: translateX(20px);
+}
+
+/* Custom Textareas */
+.settings-textarea {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-glass);
+  border-radius: 10px;
+  color: var(--text-primary);
+  padding: 12px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  outline: none;
+  resize: vertical;
+}
+
+.settings-textarea:focus {
+  border-color: var(--border-glass-glow);
+}
+
+/* Theme Color Buttons */
+.theme-colors {
+  display: flex;
+  gap: 12px;
+}
+
+.theme-color-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.theme-color-btn.active {
+  border-color: #ffffff;
+  transform: scale(1.15);
 }
 
 /* Custom Scrollbar */

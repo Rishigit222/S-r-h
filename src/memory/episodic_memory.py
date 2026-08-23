@@ -122,5 +122,9 @@ class EpisodicMemoryStore:
             cursor.execute("DELETE FROM user_facts WHERE session_id = ?", (session_id,))
             conn.commit()
 
+    def clear_history(self, session_id: str):
+        """Alias for clear_session."""
+        self.clear_session(session_id)
+
 
 memory_store = EpisodicMemoryStore()

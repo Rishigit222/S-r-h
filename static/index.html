@@ -20,7 +20,7 @@
         <div class="brand-logo">🌟</div>
         <div>
           <div class="brand-title">s@r@h</div>
-          <span class="brand-badge">Meta-RAG Host</span>
+          <span id="sidebar-tier-badge" class="brand-badge">Free Tier</span>
         </div>
       </div>
 
@@ -45,15 +45,16 @@
         </li>
       </ul>
 
-      <div class="user-profile">
+      <!-- User Profile Card (Clickable to open Settings) -->
+      <div class="user-profile" id="btn-open-settings-sidebar">
         <div class="user-info">
-          <div class="user-avatar">R</div>
+          <div class="user-avatar" id="sidebar-user-avatar">R</div>
           <div>
-            <div style="font-size: 13px; font-weight: 600;">Rishi</div>
-            <div style="font-size: 11px; color: var(--text-muted);">Lead AI Architect</div>
+            <div id="sidebar-user-name" style="font-size: 13px; font-weight: 600;">Rishi</div>
+            <div id="sidebar-user-role" style="font-size: 11px; color: var(--text-muted);">Lead AI Architect</div>
           </div>
         </div>
-        <span style="font-size: 16px; cursor: pointer;">⚙️</span>
+        <span style="font-size: 16px;">⚙️</span>
       </div>
     </aside>
 
@@ -64,16 +65,18 @@
         <div class="system-status">
           <span class="status-dot"></span>
           <span style="font-size: 13.5px; font-weight: 500; color: var(--text-secondary);">
-            s@r@h v4.0 <span style="color: var(--accent-cyan);">ONLINE</span> (Meta-RAG Active)
+            s@r@h v4.1 <span style="color: var(--accent-cyan);">ONLINE</span> (Meta-RAG Active)
           </span>
         </div>
 
         <div class="quick-stats">
           <div class="stat-pill">Gen: <span id="top-gen-version">v1</span></div>
-          <div class="stat-pill">Vector Chunks: <span id="top-chunks-count">50</span></div>
-          <div class="stat-pill">Graph Triples: <span id="top-triples-count">41</span></div>
+          <div class="stat-pill">Plan: <span id="top-plan-badge" style="color: var(--accent-amber);">Free</span></div>
           <div class="stat-pill">Cache Hit: <span id="top-cache-rate">100%</span></div>
           <div class="stat-pill">LLM: <span id="top-llm-provider">local</span></div>
+          <button class="btn-settings-header" id="btn-open-settings-header">
+            <span>⚙️</span> Settings
+          </button>
         </div>
       </header>
 
@@ -89,9 +92,10 @@
                   <span class="badge pass">🛡️ Tri-Guardrails Active</span>
                   <span class="badge" style="background: rgba(168,85,247,0.15); color: var(--accent-violet)">🕸️ GraphRAG Enabled</span>
                   <span class="badge" style="background: rgba(0,240,255,0.15); color: var(--accent-cyan)">🧬 Meta-RAG Self-Tuning</span>
+                  <span class="badge" style="background: rgba(245,158,11,0.15); color: var(--accent-amber)">⚙️ Settings Studio Ready</span>
                 </div>
                 <p>Hello! I am <strong>s@r@h</strong> (<em>Self-Adaptive Reasoning & Retrieval Autonomous Host</em>).</p>
-                <p style="margin-top: 6px; color: var(--text-secondary);">I feature an autonomous <strong>Meta-RAG self-learning system</strong> that continuously trains on document concepts, adapts its retrieval weights, and can audit/modify external RAG models.</p>
+                <p style="margin-top: 6px; color: var(--text-secondary);">I feature autonomous self-training, dynamic hyperparameter tuning, 3D GraphRAG, and full model custom instructions.</p>
                 <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
                   <button onclick="document.getElementById('chat-query-input').value = this.innerText; document.getElementById('btn-chat-send').click();" style="padding: 6px 12px; border-radius: 8px; background: rgba(255,255,255,0.06); border: 1px solid var(--border-glass); color: var(--accent-cyan); font-size: 12px; cursor: pointer;">How does DeepSeek R1 reasoning work with GRPO?</button>
                   <button onclick="document.getElementById('chat-query-input').value = this.innerText; document.getElementById('btn-chat-send').click();" style="padding: 6px 12px; border-radius: 8px; background: rgba(255,255,255,0.06); border: 1px solid var(--border-glass); color: var(--accent-cyan); font-size: 12px; cursor: pointer;">Explain LoRA parameter-efficient fine tuning</button>
@@ -295,6 +299,210 @@ retriever = vectorstore.as_retriever(search_kwargs={'k': 3})
         </div>
       </section>
     </main>
+  </div>
+
+  <!-- ==========================================================================
+       ChatGPT / Claude / DeepSeek Style Settings & Account Modal
+       ========================================================================== -->
+  <div class="modal-backdrop" id="settings-modal-backdrop">
+    <div class="settings-modal">
+      <button class="modal-close-btn" id="btn-close-settings">&times;</button>
+
+      <!-- Settings Sidebar Navigation -->
+      <div class="settings-sidebar">
+        <h3 style="font-size: 16px; font-weight: 700; padding: 0 10px 12px 10px; color: var(--text-primary); border-bottom: 1px solid var(--border-glass);">
+          ⚙️ Settings
+        </h3>
+        <button class="settings-nav-btn active" data-tab="plans">👑 Upgrade to Pro</button>
+        <button class="settings-nav-btn" data-tab="custom">🧬 Custom Instructions</button>
+        <button class="settings-nav-btn" data-tab="keys">🔐 API Key Vault</button>
+        <button class="settings-nav-btn" data-tab="data">🛡️ Data Controls</button>
+        <button class="settings-nav-btn" data-tab="appearance">🎨 Appearance</button>
+      </div>
+
+      <!-- Settings Content Area -->
+      <div class="settings-content">
+        <!-- TAB 1: Subscription & Plans -->
+        <div class="settings-pane active" id="pane-plans">
+          <div>
+            <h3 style="font-size: 20px; font-weight: 700;">👑 Upgrade Your Plan</h3>
+            <p style="color: var(--text-secondary); font-size: 13.5px; margin-top: 4px;">Unlock high-speed reasoning, unlimited GraphRAG expansions, and priority reranking.</p>
+          </div>
+
+          <div class="tier-cards-container">
+            <!-- Free Plan -->
+            <div class="tier-card" id="tier-card-free">
+              <div class="tier-header">
+                <h3>s@r@h Free</h3>
+                <div class="tier-price">$0 <span style="font-size: 13px; color: var(--text-muted); font-weight: normal;">/ forever</span></div>
+                <ul class="tier-features">
+                  <li>Local CPU-optimized embeddings</li>
+                  <li>50 Knowledge vector chunks</li>
+                  <li>Standard hybrid search (RRF)</li>
+                  <li>Tri-guardrail faithfulness gates</li>
+                </ul>
+              </div>
+              <button class="btn-tier active-plan" id="btn-plan-free" onclick="switchPlan('free')">Current Plan</button>
+            </div>
+
+            <!-- Pro Plan (Featured) -->
+            <div class="tier-card featured" id="tier-card-pro">
+              <div class="tier-header">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <h3 style="color: var(--accent-cyan);">s@r@h Pro</h3>
+                  <span class="badge" style="background: rgba(245,158,11,0.2); color: var(--accent-amber); font-weight: 700;">POPULAR</span>
+                </div>
+                <div class="tier-price">$20 <span style="font-size: 13px; color: var(--text-muted); font-weight: normal;">/ month</span></div>
+                <ul class="tier-features">
+                  <li>Unlimited GraphRAG 3D node expansions</li>
+                  <li>Autonomous Meta-RAG auto-tuning</li>
+                  <li>Sub-10ms Semantic Vector Cache</li>
+                  <li>DeepSeek R1 / Claude 3.7 reasoning pipelines</li>
+                  <li>Custom Multi-Doc Upload & Ingestion</li>
+                </ul>
+              </div>
+              <button class="btn-tier upgrade" id="btn-plan-pro" onclick="switchPlan('pro')">Upgrade to Pro ➔</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: Model Customization & Auto-Refine -->
+        <div class="settings-pane" id="pane-custom">
+          <div>
+            <h3 style="font-size: 20px; font-weight: 700;">🧬 Model Customization & Auto-Refine</h3>
+            <p style="color: var(--text-secondary); font-size: 13.5px; margin-top: 4px;">Tailor s@r@h's persona, reasoning tokens, and continuous self-refinement.</p>
+          </div>
+
+          <div class="switch-container">
+            <div>
+              <strong style="font-size: 14px;">Autonomous Model Auto-Refinement</strong>
+              <div style="font-size: 12.5px; color: var(--text-muted);">Automatically adapts retrieval weights and prompts every 10 queries.</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="settings-toggle-autorefine" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div>
+            <label style="font-size: 13.5px; font-weight: 600; color: var(--accent-cyan); display: block; margin-bottom: 6px;">
+              What should s@r@h know about you to provide better answers?
+            </label>
+            <textarea id="settings-user-info" class="settings-textarea" rows="3" placeholder="e.g. I am a Lead AI Engineer working with PyTorch, CUDA, and distributed LLM serving."></textarea>
+          </div>
+
+          <div>
+            <label style="font-size: 13.5px; font-weight: 600; color: var(--accent-violet); display: block; margin-bottom: 6px;">
+              How would you like s@r@h to respond?
+            </label>
+            <textarea id="settings-style-info" class="settings-textarea" rows="3" placeholder="e.g. Provide production-ready code snippets with strict inline citations and mathematical proofs."></textarea>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="font-size: 13.5px; color: var(--text-secondary);">
+              Reasoning Effort:
+              <select id="settings-reasoning-effort" style="background: #1e293b; border: 1px solid var(--border-glass); color: #fff; padding: 6px 12px; border-radius: 8px; margin-left: 8px;">
+                <option value="low">Low (Fastest)</option>
+                <option value="medium">Medium (Balanced)</option>
+                <option value="high" selected>High (DeepSeek R1 Thinking Mode)</option>
+              </select>
+            </div>
+            <button id="btn-save-custom-instructions" style="padding: 10px 20px; border-radius: 10px; background: var(--accent-cyan); color: #000; font-weight: 700; border: none; cursor: pointer;">Save Preferences</button>
+          </div>
+        </div>
+
+        <!-- TAB 3: API Key Vault -->
+        <div class="settings-pane" id="pane-keys">
+          <div>
+            <h3 style="font-size: 20px; font-weight: 700;">🔐 Multi-Provider API Key Vault</h3>
+            <p style="color: var(--text-secondary); font-size: 13.5px; margin-top: 4px;">Optionally provide cloud provider keys. s@r@h defaults to local CPU inference if left blank.</p>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <div>
+              <label style="font-size: 13px; color: var(--text-secondary);">OpenAI API Key (GPT-4o / GPT-5):</label>
+              <input type="password" id="vault-openai-key" class="settings-textarea" style="margin-top: 4px; padding: 8px 12px;" placeholder="sk-proj-..." />
+            </div>
+            <div>
+              <label style="font-size: 13px; color: var(--text-secondary);">Anthropic API Key (Claude 3.7 Sonnet):</label>
+              <input type="password" id="vault-anthropic-key" class="settings-textarea" style="margin-top: 4px; padding: 8px 12px;" placeholder="sk-ant-..." />
+            </div>
+            <div>
+              <label style="font-size: 13px; color: var(--text-secondary);">Google Gemini API Key (Gemini 2.5 Flash):</label>
+              <input type="password" id="vault-gemini-key" class="settings-textarea" style="margin-top: 4px; padding: 8px 12px;" placeholder="AIzaSy..." />
+            </div>
+            <div>
+              <label style="font-size: 13px; color: var(--text-secondary);">Groq API Key (Llama-3.3-70B 800 tokens/sec):</label>
+              <input type="password" id="vault-groq-key" class="settings-textarea" style="margin-top: 4px; padding: 8px 12px;" placeholder="gsk_..." />
+            </div>
+            <button id="btn-save-api-keys" style="margin-top: 8px; padding: 10px 20px; border-radius: 10px; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-violet)); color: #fff; font-weight: 600; border: none; cursor: pointer;">Save Keys to Vault</button>
+          </div>
+        </div>
+
+        <!-- TAB 4: Data Controls & Privacy -->
+        <div class="settings-pane" id="pane-data">
+          <div>
+            <h3 style="font-size: 20px; font-weight: 700;">🛡️ Data Controls & Privacy</h3>
+            <p style="color: var(--text-secondary); font-size: 13.5px; margin-top: 4px;">Manage your local vector store, semantic cache, memory history, and backups.</p>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 14px;">
+            <div class="switch-container">
+              <div>
+                <strong>Purge Semantic Response Cache</strong>
+                <div style="font-size: 12px; color: var(--text-muted);">Clears in-memory & persistent cache entries to force fresh retrieval.</div>
+              </div>
+              <button onclick="clearCacheAction()" style="padding: 8px 14px; border-radius: 8px; background: rgba(244,63,94,0.15); border: 1px solid rgba(244,63,94,0.4); color: var(--accent-rose); font-weight: 600; cursor: pointer;">Clear Cache</button>
+            </div>
+
+            <div class="switch-container">
+              <div>
+                <strong>Reset Episodic Memory & Profile</strong>
+                <div style="font-size: 12px; color: var(--text-muted);">Deletes remembered session turns and auto-extracted facts.</div>
+              </div>
+              <button onclick="clearMemoryAction()" style="padding: 8px 14px; border-radius: 8px; background: rgba(244,63,94,0.15); border: 1px solid rgba(244,63,94,0.4); color: var(--accent-rose); font-weight: 600; cursor: pointer;">Reset Memory</button>
+            </div>
+
+            <div class="switch-container">
+              <div>
+                <strong>Export All Data (JSON Archive)</strong>
+                <div style="font-size: 12px; color: var(--text-muted);">Download a complete JSON dump of memory, telemetry, and graph data.</div>
+              </div>
+              <a href="/settings/export" download style="text-decoration: none; padding: 8px 16px; border-radius: 8px; background: rgba(0,240,255,0.15); border: 1px solid var(--border-glass-glow); color: var(--accent-cyan); font-weight: 600; cursor: pointer;">📥 Export JSON</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 5: Appearance & Themes -->
+        <div class="settings-pane" id="pane-appearance">
+          <div>
+            <h3 style="font-size: 20px; font-weight: 700;">🎨 Appearance & UI Customization</h3>
+            <p style="color: var(--text-secondary); font-size: 13.5px; margin-top: 4px;">Choose your neon glassmorphic theme accent and ambient effects.</p>
+          </div>
+
+          <div>
+            <label style="font-size: 13.5px; font-weight: 600; display: block; margin-bottom: 10px;">Theme Accent Color:</label>
+            <div class="theme-colors">
+              <button class="theme-color-btn active" style="background: #00f0ff;" onclick="setThemeAccent('cyan')"></button>
+              <button class="theme-color-btn" style="background: #a855f7;" onclick="setThemeAccent('violet')"></button>
+              <button class="theme-color-btn" style="background: #10b981;" onclick="setThemeAccent('emerald')"></button>
+              <button class="theme-color-btn" style="background: #f59e0b;" onclick="setThemeAccent('amber')"></button>
+            </div>
+          </div>
+
+          <div class="switch-container" style="margin-top: 14px;">
+            <div>
+              <strong>3D Particle Constellation Background</strong>
+              <div style="font-size: 12px; color: var(--text-muted);">Renders interactive particle physics on the backdrop canvas.</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="settings-toggle-particles" checked onchange="toggleParticles(this.checked)" />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="/static/js/particles.js"></script>
