@@ -621,6 +621,228 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // ==========================================================================
+  // 3D Knowledge Graph AI Voice Assistant Controller
+  // ==========================================================================
+
+  let activeVoiceSegments = [];
+  let isSpeakingVoice = false;
+
+  const btnVoiceMic = document.getElementById("btn-voice-mic");
+  const voiceMicStatus = document.getElementById("voice-mic-status");
+  const voiceMicSubtext = document.getElementById("voice-mic-subtext");
+  const audioWaveform = document.getElementById("audio-waveform");
+  const voiceSegmentsContainer = document.getElementById("voice-segments-container");
+  const hubActiveSegment = document.getElementById("hub-active-segment");
+  const btnReplayVoice = document.getElementById("btn-replay-voice");
+
+  // Speech Recognition Initializer
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognition = null;
+
+  if (SpeechRecognition) {
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.lang = "en-US";
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      if (btnVoiceMic) btnVoiceMic.classList.add("listening");
+      if (voiceMicStatus) voiceMicStatus.innerText = "Listening... Speak your question";
+      if (voiceMicSubtext) voiceMicSubtext.innerText = "e.g. 'Explain DeepSeek R1 reasoning' or 'How to build GraphRAG'";
+      if (audioWaveform) audioWaveform.classList.add("active");
+    };
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      if (voiceMicStatus) voiceMicStatus.innerText = `Heard: "${transcript}"`;
+      triggerVoiceQuery(transcript);
+    };
+
+    recognition.onerror = (event) => {
+      console.warn("Speech recognition error:", event.error);
+      if (btnVoiceMic) btnVoiceMic.classList.remove("listening");
+      if (audioWaveform) audioWaveform.classList.remove("active");
+      if (voiceMicStatus) voiceMicStatus.innerText = "Click mic to speak...";
+      if (voiceMicSubtext) voiceMicSubtext.innerText = "Mic error or permission denied. Click prompt chips above!";
+    };
+
+    recognition.onend = () => {
+      if (btnVoiceMic) btnVoiceMic.classList.remove("listening");
+      if (audioWaveform) audioWaveform.classList.remove("active");
+    };
+  }
+
+  if (btnVoiceMic) {
+    btnVoiceMic.addEventListener("click", () => {
+      if (recognition) {
+        try {
+          recognition.start();
+        } catch (e) {
+          recognition.stop();
+        }
+      } else {
+        const query = prompt("Speech recognition not supported in your browser. Enter question:", "Explain DeepSeek R1 reasoning architecture and GRPO");
+        if (query) triggerVoiceQuery(query);
+      }
+    });
+  }
+
+  // Global Trigger Voice Query function
+  window.triggerVoiceQuery = async function (query) {
+    if (!query) return;
+
+    // Ensure 3D graph is initialized
+    if (window.initGraph3D) window.initGraph3D();
+
+    if (voiceMicStatus) voiceMicStatus.innerText = `Processing: "${query}"`;
+    if (voiceMicSubtext) voiceMicSubtext.innerText = "Decomposing task into 4 visual execution stages...";
+    if (hubActiveSegment) hubActiveSegment.innerText = "Decomposing logic across 3D graph...";
+
+    try {
+      const res = await fetch("/graph/voice-assist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: query, session_id: sessionId }),
+      });
+      const data = await res.json();
+      activeVoiceSegments = data.segments || [];
+
+      if (btnReplayVoice) btnReplayVoice.style.display = "block";
+      renderAndNarrateSegments(data);
+    } catch (e) {
+      if (voiceMicStatus) voiceMicStatus.innerText = "Voice processing error: " + e.message;
+    }
+  };
+
+  async function renderAndNarrateSegments(data) {
+    if (!data.segments || data.segments.length === 0) return;
+
+    // Stop any ongoing speech
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+
+    voiceSegmentsContainer.innerHTML = "";
+
+    // Render all segment cards
+    data.segments.forEach((seg, index) => {
+      const card = document.createElement("div");
+      card.className = "segment-card";
+      card.id = `seg-card-${seg.segment_id}`;
+
+      let codeHtml = "";
+      if (seg.code_snippet) {
+        codeHtml = `
+          <div style="margin-top: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <span style="font-size: 11px; color: var(--accent-violet); font-weight: 600;">🛠️ Code Blueprint:</span>
+              <button onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText); this.innerText='✓ Copied';" style="font-size: 10px; background: rgba(255,255,255,0.08); border: 1px solid var(--border-glass); color: #fff; padding: 2px 6px; border-radius: 4px; cursor: pointer;">Copy</button>
+              <span style="display: none;">${escapeHtml(seg.code_snippet)}</span>
+            </div>
+            <pre style="background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px; border: 1px solid var(--border-glass); color: #a5f3fc; font-size: 11.5px; overflow-x: auto; max-height: 140px;"><code>${escapeHtml(seg.code_snippet)}</code></pre>
+          </div>
+        `;
+      }
+
+      let linksHtml = "";
+      if (seg.links && seg.links.length > 0) {
+        linksHtml = `
+          <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px;">
+            <span style="font-size: 11px; color: var(--accent-emerald); font-weight: 600;">🔗 Developer Resources & Where to Build:</span>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+              ${seg.links.map(l => `
+                <a href="${l.url}" target="_blank" rel="noopener noreferrer" class="dev-link-pill" title="${escapeHtml(l.description)}">
+                  <span>${l.category === 'github' ? '🐙' : l.category === 'paper' ? '📄' : '📚'}</span>
+                  ${escapeHtml(l.title)} ➔
+                </a>
+              `).join("")}
+            </div>
+          </div>
+        `;
+      }
+
+      let nodePillsHtml = "";
+      if (seg.highlight_nodes && seg.highlight_nodes.length > 0) {
+        nodePillsHtml = `
+          <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;">
+            ${seg.highlight_nodes.map(n => `<span style="font-size: 10.5px; padding: 2px 8px; border-radius: 4px; background: rgba(0,240,255,0.15); border: 1px solid rgba(0,240,255,0.3); color: var(--accent-cyan);">🕸️ ${n}</span>`).join("")}
+          </div>
+        `;
+      }
+
+      card.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <strong style="color: var(--accent-cyan); font-size: 13.5px;">Segment ${seg.segment_id}: ${escapeHtml(seg.title)}</strong>
+        </div>
+        <p style="font-size: 12.5px; color: var(--text-secondary); line-height: 1.5;">${escapeHtml(seg.detailed_text)}</p>
+        ${nodePillsHtml}
+        ${codeHtml}
+        ${linksHtml}
+      `;
+
+      voiceSegmentsContainer.appendChild(card);
+    });
+
+    // Step-by-Step Speech Synthesis with Sequential 3D Node Illumination
+    narrateSequentially(data.segments, 0);
+  }
+
+  function narrateSequentially(segments, index) {
+    if (index >= segments.length) {
+      if (hubActiveSegment) hubActiveSegment.innerText = "✓ Voice reasoning complete!";
+      if (voiceMicStatus) voiceMicStatus.innerText = "Voice walkthrough complete. Ready for next query!";
+      if (voiceMicSubtext) voiceMicSubtext.innerText = "Click mic or any prompt chip above to explore more topics.";
+      if (audioWaveform) audioWaveform.classList.remove("active");
+      return;
+    }
+
+    const seg = segments[index];
+
+    // Highlight active card
+    document.querySelectorAll(".segment-card").forEach(c => c.classList.remove("active"));
+    const activeCard = document.getElementById(`seg-card-${seg.segment_id}`);
+    if (activeCard) {
+      activeCard.classList.add("active");
+      activeCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    // Illuminate 3D Graph Nodes
+    if (window.graph3dInstance && seg.highlight_nodes) {
+      window.graph3dInstance.highlightNodes(seg.highlight_nodes);
+    }
+
+    if (hubActiveSegment) hubActiveSegment.innerText = `Speaking: Stage ${seg.segment_id} of ${segments.length}`;
+    if (voiceMicStatus) voiceMicStatus.innerText = `Explaining: ${seg.title}`;
+    if (audioWaveform) audioWaveform.classList.add("active");
+
+    // Speech Synthesis
+    if ("speechSynthesis" in window && seg.narration_speech) {
+      const utterance = new SpeechSynthesisUtterance(seg.narration_speech);
+      utterance.rate = 1.05;
+      utterance.pitch = 1.0;
+
+      utterance.onend = () => {
+        setTimeout(() => narrateSequentially(segments, index + 1), 600);
+      };
+
+      utterance.onerror = () => {
+        setTimeout(() => narrateSequentially(segments, index + 1), 1000);
+      };
+
+      window.speechSynthesis.speak(utterance);
+    } else {
+      // Fallback timer if speech synthesis is not active
+      setTimeout(() => narrateSequentially(segments, index + 1), 4000);
+    }
+  }
+
+  if (btnReplayVoice) {
+    btnReplayVoice.addEventListener("click", () => {
+      if (activeVoiceSegments.length > 0) {
+        narrateSequentially(activeVoiceSegments, 0);
+      }
+    });
+  }
+
   function escapeHtml(str) {
     if (!str) return "";
     return String(str)
@@ -631,3 +853,4 @@ document.addEventListener("DOMContentLoaded", () => {
       .replace(/'/g, "&#039;");
   }
 });
+

@@ -42,6 +42,9 @@ from src.evolution.meta_modifier import rag_meta_modifier
 # Settings & Subscription Suite
 from src.api.settings import settings_manager, UserProfileUpdateRequest, TierUpgradeRequest
 
+# 3D Graph AI Voice Assistant
+from src.graph.voice_assistant import graph_voice_assistant, VoiceAssistRequest
+
 
 app = FastAPI(
     title="s@r@h — Autonomous Knowledge & Meta-RAG Host",
@@ -265,6 +268,12 @@ async def get_evolution_status():
         },
         "mutation_history": self_optimizer.get_mutation_history(15),
     }
+
+
+@app.post("/graph/voice-assist")
+async def voice_assist(req: VoiceAssistRequest):
+    """Processes spoken voice query in 3D Knowledge Graph, returning 4-segment reasoning, node illumination targets, and developer links."""
+    return graph_voice_assistant.process_voice_query(req.query)
 
 
 # Auth Endpoints

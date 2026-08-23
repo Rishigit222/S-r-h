@@ -1,4 +1,4 @@
-/* Interactive Force-Directed Knowledge Graph Visualizer for s@r@h */
+/* Interactive Force-Directed Knowledge Graph Visualizer with Voice Assistant Node Illumination */
 
 class KnowledgeGraph3D {
   constructor(canvasId) {
@@ -9,6 +9,8 @@ class KnowledgeGraph3D {
     this.edges = [];
     this.selectedNode = null;
     this.draggedNode = null;
+    this.highlightedNodes = new Set();
+    this.pulsePhase = 0;
 
     this.resize();
     window.addEventListener("resize", () => this.resize());
@@ -17,9 +19,10 @@ class KnowledgeGraph3D {
   }
 
   resize() {
+    if (!this.canvas || !this.canvas.parentElement) return;
     const rect = this.canvas.parentElement.getBoundingClientRect();
     this.canvas.width = rect.width || 800;
-    this.canvas.height = 580;
+    this.canvas.height = 620;
   }
 
   async loadGraphData() {
@@ -35,11 +38,12 @@ class KnowledgeGraph3D {
         if (!this.nodes.has(t.subject)) {
           this.nodes.set(t.subject, {
             id: t.subject,
-            x: this.canvas.width / 2 + (Math.random() - 0.5) * 350,
-            y: this.canvas.height / 2 + (Math.random() - 0.5) * 350,
+            x: this.canvas.width / 2 + (Math.random() - 0.5) * 380,
+            y: this.canvas.height / 2 + (Math.random() - 0.5) * 380,
             vx: 0,
             vy: 0,
             radius: 14,
+            baseColor: "#00f0ff",
             color: "#00f0ff",
           });
         }
@@ -47,11 +51,12 @@ class KnowledgeGraph3D {
         if (!this.nodes.has(t.object)) {
           this.nodes.set(t.object, {
             id: t.object,
-            x: this.canvas.width / 2 + (Math.random() - 0.5) * 350,
-            y: this.canvas.height / 2 + (Math.random() - 0.5) * 350,
+            x: this.canvas.width / 2 + (Math.random() - 0.5) * 380,
+            y: this.canvas.height / 2 + (Math.random() - 0.5) * 380,
             vx: 0,
             vy: 0,
             radius: 11,
+            baseColor: "#a855f7",
             color: "#a855f7",
           });
         }
@@ -69,6 +74,26 @@ class KnowledgeGraph3D {
     }
   }
 
+  highlightNodes(nodeNames) {
+    this.highlightedNodes.clear();
+    if (!nodeNames || nodeNames.length === 0) return;
+
+    nodeNames.forEach((name) => {
+      // Direct match or partial match
+      for (let [id, node] of this.nodes.entries()) {
+        if (id.toLowerCase().includes(name.toLowerCase()) || name.toLowerCase().includes(id.toLowerCase())) {
+          this.highlightedNodes.add(id);
+          this.selectedNode = node;
+          this.updateInspector(node);
+        }
+      }
+    });
+  }
+
+  clearHighlights() {
+    this.highlightedNodes.clear();
+  }
+
   initEvents() {
     this.canvas.addEventListener("mousedown", (e) => {
       const rect = this.canvas.getBoundingClientRect();
@@ -78,7 +103,7 @@ class KnowledgeGraph3D {
       for (let node of this.nodes.values()) {
         const dx = node.x - x;
         const dy = node.y - y;
-        if (Math.sqrt(dx * dx + dy * dy) < node.radius + 5) {
+        if (Math.sqrt(dx * dx + dy * dy) < node.radius + 8) {
           this.draggedNode = node;
           this.selectedNode = node;
           this.updateInspector(node);
@@ -122,6 +147,8 @@ class KnowledgeGraph3D {
 
   runPhysicsLoop() {
     const step = () => {
+      this.pulsePhase += 0.05;
+
       // 1. Repulsion between all nodes
       const nodeList = Array.from(this.nodes.values());
       for (let i = 0; i < nodeList.length; i++) {
@@ -131,8 +158,8 @@ class KnowledgeGraph3D {
           let dx = n2.x - n1.x;
           let dy = n2.y - n1.y;
           let dist = Math.sqrt(dx * dx + dy * dy) || 1;
-          if (dist < 180) {
-            let force = (180 - dist) / 180 * 1.5;
+          if (dist < 190) {
+            let force = (190 - dist) / 190 * 1.5;
             let fx = (dx / dist) * force;
             let fy = (dy / dist) * force;
             if (n1 !== this.draggedNode) { n1.x -= fx; n1.y -= fy; }
@@ -146,7 +173,7 @@ class KnowledgeGraph3D {
         let dx = e.target.x - e.source.x;
         let dy = e.target.y - e.source.y;
         let dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        let targetDist = 90;
+        let targetDist = 95;
         let force = (dist - targetDist) * 0.03;
         let fx = (dx / dist) * force;
         let fy = (dy / dist) * force;
@@ -160,9 +187,10 @@ class KnowledgeGraph3D {
 
       // Draw Edges
       this.edges.forEach((e) => {
+        const isHighlighted = this.highlightedNodes.has(e.source.id) && this.highlightedNodes.has(e.target.id);
         this.ctx.beginPath();
-        this.ctx.strokeStyle = "rgba(168, 85, 247, 0.35)";
-        this.ctx.lineWidth = 1.2;
+        this.ctx.strokeStyle = isHighlighted ? "rgba(0, 240, 255, 0.85)" : "rgba(168, 85, 247, 0.35)";
+        this.ctx.lineWidth = isHighlighted ? 2.5 : 1.2;
         this.ctx.moveTo(e.source.x, e.source.y);
         this.ctx.lineTo(e.target.x, e.target.y);
         this.ctx.stroke();
@@ -171,24 +199,35 @@ class KnowledgeGraph3D {
         const midX = (e.source.x + e.target.x) / 2;
         const midY = (e.source.y + e.target.y) / 2;
         this.ctx.font = "9px Inter, sans-serif";
-        this.ctx.fillStyle = "rgba(148, 163, 184, 0.7)";
+        this.ctx.fillStyle = isHighlighted ? "#00f0ff" : "rgba(148, 163, 184, 0.7)";
         this.ctx.fillText(e.predicate, midX - 10, midY - 3);
       });
 
       // Draw Nodes
       nodeList.forEach((n) => {
+        const isHighlighted = this.highlightedNodes.has(n.id);
+
+        if (isHighlighted) {
+          // Animated Glowing Halo
+          const haloRadius = n.radius + 8 + Math.sin(this.pulsePhase) * 4;
+          this.ctx.beginPath();
+          this.ctx.arc(n.x, n.y, haloRadius, 0, Math.PI * 2);
+          this.ctx.fillStyle = "rgba(0, 240, 255, 0.25)";
+          this.ctx.fill();
+        }
+
         this.ctx.beginPath();
-        this.ctx.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
-        this.ctx.fillStyle = n.color;
-        this.ctx.shadowColor = n.color;
-        this.ctx.shadowBlur = n === this.selectedNode ? 20 : 8;
+        this.ctx.arc(n.x, n.y, n.radius + (isHighlighted ? 3 : 0), 0, Math.PI * 2);
+        this.ctx.fillStyle = isHighlighted ? "#00f0ff" : n.baseColor;
+        this.ctx.shadowColor = isHighlighted ? "#00f0ff" : n.baseColor;
+        this.ctx.shadowBlur = isHighlighted ? 30 : (n === this.selectedNode ? 20 : 8);
         this.ctx.fill();
         this.ctx.shadowBlur = 0;
 
-        // Label
-        this.ctx.font = "11px Inter, sans-serif";
-        this.ctx.fillStyle = "#f8fafc";
-        this.ctx.fillText(n.id, n.x + n.radius + 5, n.y + 4);
+        // Node Label
+        this.ctx.font = isHighlighted ? "bold 12px Inter, sans-serif" : "11px Inter, sans-serif";
+        this.ctx.fillStyle = isHighlighted ? "#00f0ff" : "#f8fafc";
+        this.ctx.fillText(n.id, n.x + n.radius + 6, n.y + 4);
       });
 
       requestAnimationFrame(step);
@@ -197,3 +236,9 @@ class KnowledgeGraph3D {
     step();
   }
 }
+
+window.initGraph3D = function () {
+  if (!window.graph3dInstance) {
+    window.graph3dInstance = new KnowledgeGraph3D("graph-canvas");
+  }
+};
