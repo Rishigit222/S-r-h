@@ -56,7 +56,7 @@ def verify_citations(answer: str, num_context_chunks: int) -> CitationResult:
             reason=f"Citations {invalid} are out of range (valid: 1-{num_context_chunks}).",
         )
 
-    console.print(f"[green]✓ Citations valid: {unique_citations}[/green]")
+    console.print(f"[green][OK] Citations valid: {unique_citations}[/green]")
     return CitationResult(
         passed=True, cited_sources=unique_citations,
         valid_range=num_context_chunks,

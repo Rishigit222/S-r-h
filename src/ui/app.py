@@ -42,7 +42,7 @@ with st.sidebar:
             try:
                 resp = requests.post(f"{API_URL}/ingest", timeout=120).json()
                 st.success(
-                    f"✓ Loaded {resp['documents_loaded']} docs → "
+                    f"[OK] Loaded {resp['documents_loaded']} docs → "
                     f"{resp['chunks_created']} chunks | {resp['graph_triples_indexed']} graph triples"
                 )
             except Exception as e:

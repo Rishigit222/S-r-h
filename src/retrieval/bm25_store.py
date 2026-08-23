@@ -34,7 +34,7 @@ class BM25Store:
             self._tokenized_corpus.append(_tokenize(chunk.content))
 
         self._index = BM25Okapi(self._tokenized_corpus)
-        console.print(f"[green]✓ BM25 index built with {len(self._chunks)} chunks[/green]")
+        console.print(f"[green][OK] BM25 index built with {len(self._chunks)} chunks[/green]")
 
     def search(self, query: str, top_k: int = 20) -> list[dict]:
         if self._index is None or not self._chunks:

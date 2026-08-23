@@ -38,13 +38,13 @@ class ModelManager:
         """Evict the least-recently-used model if cache is full."""
         while len(self._cache) >= self._max_models:
             evicted_name, evicted_model = self._cache.popitem(last=False)
-            console.print(f"[yellow]♻ Evicting model: {evicted_name}[/yellow]")
+            console.print(f"[yellow]Evicting model: {evicted_name}[/yellow]")
             del evicted_model
             gc.collect()
 
     def _load_model(self, model_name: str) -> Any:
         """Load a model by name, routing to the appropriate loader."""
-        console.print(f"[cyan]📦 Loading model: {model_name}...[/cyan]")
+        console.print(f"[cyan]Loading model: {model_name}...[/cyan]")
         start = time.time()
 
         if "all-MiniLM" in model_name or "embedding" in model_name.lower():
@@ -58,7 +58,7 @@ class ModelManager:
 
         elapsed = time.time() - start
         self._load_times[model_name] = elapsed
-        console.print(f"[green]✓ Loaded {model_name} in {elapsed:.1f}s[/green]")
+        console.print(f"[green][OK] Loaded {model_name} in {elapsed:.1f}s[/green]")
         return model
 
     def _load_sentence_transformer(self, model_name: str) -> Any:

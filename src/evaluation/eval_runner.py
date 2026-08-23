@@ -30,7 +30,7 @@ def run_evaluation(threshold: float = 0.80):
     console.print("[cyan]Ingesting sample documents for evaluation...[/cyan]")
     try:
         ingest_resp = requests.post(f"{API_URL}/ingest", timeout=60).json()
-        console.print(f"[green]✓ Ingested {ingest_resp['chunks_indexed']} chunks.[/green]\n")
+        console.print(f"[green][OK] Ingested {ingest_resp['chunks_indexed']} chunks.[/green]\n")
     except Exception as e:
         console.print(f"[red]Failed to connect to API at {API_URL}. Start server first with: make run-api[/red]")
         return

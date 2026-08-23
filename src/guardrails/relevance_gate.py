@@ -20,30 +20,31 @@ class RelevanceResult:
     reason: str
 
 
-def check_relevance(reranked_results: list[dict]) -> RelevanceResult:
+def check_relevance(reranked_results: list[dict], threshold: float | None = None) -> RelevanceResult:
     """Check if the top retrieved results are relevant enough to answer."""
+    effective_threshold = threshold if threshold is not None else settings.relevance_threshold
+
     if not reranked_results:
         return RelevanceResult(
             passed=False, best_score=0.0,
-            threshold=settings.relevance_threshold,
+            threshold=effective_threshold,
             reason="No results retrieved. Cannot answer.",
         )
 
     best_score = reranked_results[0].get("rerank_score", 0.0)
-    threshold = settings.relevance_threshold
 
-    if best_score < threshold:
+    if best_score < effective_threshold:
         console.print(
-            f"[yellow]⚠ Relevance gate BLOCKED: best_score={best_score:.3f} "
-            f"< threshold={threshold}[/yellow]"
+            f"[yellow]Relevance gate BLOCKED: best_score={best_score:.3f} "
+            f"< threshold={effective_threshold}[/yellow]"
         )
         return RelevanceResult(
-            passed=False, best_score=best_score, threshold=threshold,
-            reason=f"Retrieved context is not relevant enough (score: {best_score:.3f} < {threshold}).",
+            passed=False, best_score=best_score, threshold=effective_threshold,
+            reason=f"Retrieved context is not relevant enough (score: {best_score:.3f} < {effective_threshold}).",
         )
 
-    console.print(f"[green]✓ Relevance gate passed: {best_score:.3f} >= {threshold}[/green]")
+    console.print(f"[green][OK] Relevance gate passed: {best_score:.3f} >= {effective_threshold}[/green]")
     return RelevanceResult(
-        passed=True, best_score=best_score, threshold=threshold,
+        passed=True, best_score=best_score, threshold=effective_threshold,
         reason="Context is relevant.",
     )

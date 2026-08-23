@@ -57,7 +57,7 @@ def check_faithfulness(answer: str, context_chunks: list[dict]) -> FaithfulnessR
     passed = score >= threshold
 
     if passed:
-        console.print(f"[green]✓ Faithfulness check passed: {score:.3f} >= {threshold}[/green]")
+        console.print(f"[green][OK] Faithfulness check passed: {score:.3f} >= {threshold}[/green]")
     else:
         console.print(f"[red]✗ Faithfulness check FAILED: {score:.3f} < {threshold}[/red]")
 

@@ -26,7 +26,7 @@ def embed_texts(texts: list[str]) -> np.ndarray:
         normalize_embeddings=True,
     )
 
-    console.print(f"[green]✓ Generated {len(embeddings)} embeddings (dim={embeddings.shape[1]})[/green]")
+    console.print(f"[green][OK] Generated {len(embeddings)} embeddings (dim={embeddings.shape[1]})[/green]")
     return np.array(embeddings)
 
 

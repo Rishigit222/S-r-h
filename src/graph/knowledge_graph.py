@@ -113,7 +113,7 @@ class KnowledgeGraphStore:
                 [(t.subject, t.predicate, t.object, t.source_chunk_id) for t in triples]
             )
             conn.commit()
-        console.print(f"[green]✓ Ingested {len(triples)} triples into Knowledge Graph[/green]")
+        console.print(f"[green][OK] Ingested {len(triples)} triples into Knowledge Graph[/green]")
 
     def extract_and_index_chunks(self, chunks: list):
         """Extract and index triples from chunks combined with rich seed knowledge."""

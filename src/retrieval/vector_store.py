@@ -61,7 +61,7 @@ class VectorStore:
                 metadatas=metadatas[i:end],
             )
 
-        console.print(f"[green]✓ Added {len(chunks)} chunks to vector store[/green]")
+        console.print(f"[green][OK] Added {len(chunks)} chunks to vector store[/green]")
 
     def search(self, query: str, top_k: int | None = None) -> list[dict]:
         """Search for similar chunks by cosine similarity."""

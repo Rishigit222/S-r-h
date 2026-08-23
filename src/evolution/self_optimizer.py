@@ -131,7 +131,7 @@ class SelfOptimizer:
             )
             conn.commit()
         self._save_current_state()
-        console.print(f"[bold magenta]🧬 Meta-RAG Mutation v{self.params.generation_version}: {param_name} ({old_val} ➔ {new_val}) | Reason: {reason}[/bold magenta]")
+        console.print(f"[bold magenta]Meta-RAG Mutation v{self.params.generation_version}: {param_name} ({old_val} -> {new_val}) | Reason: {reason}[/bold magenta]")
 
     def auto_tune(self) -> dict:
         """Analyze recent telemetry and trigger autonomous parameter self-tuning."""

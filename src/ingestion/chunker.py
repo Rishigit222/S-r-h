@@ -49,7 +49,7 @@ def chunk_documents(
                 }
             ))
 
-    console.print(f"[green]✓ Created {len(chunks)} chunks from {len(documents)} documents[/green]")
+    console.print(f"[green][OK] Created {len(chunks)} chunks from {len(documents)} documents[/green]")
     return chunks
 
 

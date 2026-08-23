@@ -115,12 +115,12 @@ def generate(
             )
             text = response.choices[0].message.content or ""
             if text.strip():
-                console.print(f"[green]✓ Generated {len(text)} chars via {provider}[/green]")
+                console.print(f"[green][OK] Generated {len(text)} chars via {provider}[/green]")
                 return text
         except Exception as e:
             console.print(f"[yellow]⚠ {provider} unavailable ({e}), using smart local fallback[/yellow]")
 
     # Fallback to local extractive generator
     fallback_text = _extractive_fallback_generate(prompt)
-    console.print(f"[green]✓ Generated {len(fallback_text)} chars via local_fallback[/green]")
+    console.print(f"[green][OK] Generated {len(fallback_text)} chars via local_fallback[/green]")
     return fallback_text

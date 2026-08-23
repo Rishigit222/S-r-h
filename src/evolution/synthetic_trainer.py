@@ -76,7 +76,7 @@ class SyntheticTrainer:
                 seen.add(pair.question)
                 deduped.append(pair)
 
-        console.print(f"[green]✓ Generated {len(deduped)} synthetic QA pairs for autonomous training[/green]")
+        console.print(f"[green][OK] Generated {len(deduped)} synthetic QA pairs for autonomous training[/green]")
         return deduped
 
 

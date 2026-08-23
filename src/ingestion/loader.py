@@ -81,5 +81,5 @@ def load_directory(directory: str | Path) -> list[Document]:
         except Exception as e:
             console.print(f"  [red]Failed to load {file_path.name}: {e}[/red]")
 
-    console.print(f"[green]✓ Loaded {len(documents)} documents from {directory}[/green]")
+    console.print(f"[green][OK] Loaded {len(documents)} documents from {directory}[/green]")
     return documents

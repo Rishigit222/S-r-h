@@ -33,7 +33,7 @@ def rerank(
     reranked = sorted(candidates, key=lambda x: x["rerank_score"], reverse=True)[:top_k]
 
     console.print(
-        f"[green]✓ Reranked {len(candidates)} → top {len(reranked)} "
+        f"[green][OK] Reranked {len(candidates)} → top {len(reranked)} "
         f"(best={reranked[0]['rerank_score']:.3f})[/green]"
     )
     return reranked
