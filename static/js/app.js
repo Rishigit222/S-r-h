@@ -1,293 +1,399 @@
-/* Main Application Controller for s@r@h Glassmorphic UI */
-
-let currentSession = {
-  sessionId: localStorage.getItem("sarah_session_id") || "user_session_" + Math.floor(Math.random() * 10000),
-  username: localStorage.getItem("sarah_username") || "Rishi",
-  role: "Lead AI Engineer",
-};
-
-let graphVisualizer = null;
+/**
+ * s@r@h Front-End Application Controller
+ * Handles Chat streaming, 3D Graph integration, Telemetry, Memory, and Meta-RAG Evolution.
+ */
 
 document.addEventListener("DOMContentLoaded", () => {
-  localStorage.setItem("sarah_session_id", currentSession.sessionId);
-  initNavigation();
-  initChat();
-  initIngestion();
-  fetchHealth();
-  fetchTelemetry();
-  fetchMemory();
-});
+  const sessionId = "user_session_01";
 
-// View Navigation
-function initNavigation() {
+  // --- View Switching ---
   const navItems = document.querySelectorAll(".nav-item");
+  const viewSections = document.querySelectorAll(".view-section");
+
   navItems.forEach((item) => {
     item.addEventListener("click", () => {
-      navItems.forEach((i) => i.classList.remove("active"));
-      item.classList.add("active");
+      navItems.forEach((n) => n.classList.remove("active"));
+      viewSections.forEach((s) => s.classList.remove("active"));
 
-      const viewName = item.getAttribute("data-view");
-      document.querySelectorAll(".view-section").forEach((sec) => sec.classList.remove("active"));
-      const targetSec = document.getElementById(`view-${viewName}`);
+      item.classList.add("active");
+      const targetView = item.getAttribute("data-view");
+      const targetSec = document.getElementById(`view-${targetView}`);
       if (targetSec) targetSec.classList.add("active");
 
-      if (viewName === "graph" && !graphVisualizer) {
-        setTimeout(() => {
-          graphVisualizer = new KnowledgeGraph3D("graph-canvas");
-        }, 150);
-      } else if (viewName === "telemetry") {
-        fetchTelemetry();
-      } else if (viewName === "memory") {
-        fetchMemory();
+      // Trigger refreshes on view switch
+      if (targetView === "telemetry") loadTelemetry();
+      if (targetView === "memory") loadMemory();
+      if (targetView === "evolution") loadEvolutionStatus();
+      if (targetView === "graph" && window.initGraph3D) {
+        setTimeout(window.initGraph3D, 100);
       }
     });
   });
-}
 
-// System Health Polling
-async function fetchHealth() {
-  try {
-    const res = await fetch("/health");
-    const data = await res.json();
-    document.getElementById("top-chunks-count").innerText = data.vector_store_count || 0;
-    document.getElementById("top-triples-count").innerText = data.graph_triples_count || 0;
-    document.getElementById("top-cache-rate").innerText = `${data.cache_stats?.hit_rate_pct || 0}%`;
-    document.getElementById("top-llm-provider").innerText = data.llm_provider || "local";
-  } catch (e) {
-    console.warn("Health check error:", e);
+  // --- System Health Header Check ---
+  async function refreshSystemHealth() {
+    try {
+      const res = await fetch("/health");
+      const data = await res.json();
+      if (data) {
+        document.getElementById("top-chunks-count").innerText = data.vector_store_count || "0";
+        document.getElementById("top-triples-count").innerText = data.graph_triples_count || "0";
+        document.getElementById("top-llm-provider").innerText = data.llm_provider || "local";
+        if (data.generation_version) {
+          document.getElementById("top-gen-version").innerText = `v${data.generation_version}`;
+        }
+        if (data.cache_stats) {
+          document.getElementById("top-cache-rate").innerText = `${data.cache_stats.hit_rate_pct}%`;
+        }
+      }
+    } catch (e) {
+      console.warn("Health check failed:", e);
+    }
   }
-}
+  refreshSystemHealth();
+  setInterval(refreshSystemHealth, 15000);
 
-// Chat Functionality
-function initChat() {
-  const sendBtn = document.getElementById("btn-chat-send");
-  const input = document.getElementById("chat-query-input");
-  const msgList = document.getElementById("chat-messages-list");
+  // --- Chat Stream & Querying ---
+  const chatInput = document.getElementById("chat-query-input");
+  const btnChatSend = document.getElementById("btn-chat-send");
+  const chatMessagesList = document.getElementById("chat-messages-list");
 
-  const sendQuery = async () => {
-    const text = input.value.trim();
-    if (!text) return;
-    input.value = "";
+  async function handleSendChat() {
+    const query = chatInput.value.trim();
+    if (!query) return;
 
     // Append User Message
-    appendMessage("user", text);
+    appendMessage("user", query);
+    chatInput.value = "";
 
-    // Show loading placeholder
-    const loadingId = "loading-" + Date.now();
-    const loadingDiv = document.createElement("div");
-    loadingDiv.className = "msg-row bot";
-    loadingDiv.id = loadingId;
-    loadingDiv.innerHTML = `
-      <div class="msg-avatar">🌟</div>
-      <div class="msg-content" style="display: flex; gap: 8px; align-items: center;">
-        <span class="status-dot"></span>
-        <span style="color: var(--accent-cyan); font-size: 13.5px;">s@r@h is processing (Security ➔ Cache ➔ GraphRAG ➔ Hybrid Search ➔ Guardrails)...</span>
-      </div>
-    `;
-    msgList.appendChild(loadingDiv);
-    msgList.scrollTop = msgList.scrollHeight;
+    // Show Loading Bot Row
+    const loadingRow = appendLoadingMessage();
 
     try {
-      const resp = await fetch("/query", {
+      const res = await fetch("/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          question: text,
-          session_id: currentSession.sessionId,
-          top_k: 5,
-          enable_web_fallback: true,
-          enable_graph_rag: true,
-        }),
+        body: JSON.stringify({ question: query, session_id: sessionId }),
       });
-      const data = await resp.json();
-
-      document.getElementById(loadingId)?.remove();
-      renderBotResponse(data);
-      fetchHealth();
-    } catch (err) {
-      document.getElementById(loadingId)?.remove();
-      appendMessage("bot", `⚠️ Error processing query: ${err.message}`);
-    }
-  };
-
-  sendBtn.addEventListener("click", sendQuery);
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") sendQuery();
-  });
-}
-
-function appendMessage(role, text) {
-  const msgList = document.getElementById("chat-messages-list");
-  const row = document.createElement("div");
-  row.className = `msg-row ${role}`;
-  row.innerHTML = `
-    <div class="msg-avatar">${role === "user" ? "👤" : "🌟"}</div>
-    <div class="msg-content">${escapeHtml(text)}</div>
-  `;
-  msgList.appendChild(row);
-  msgList.scrollTop = msgList.scrollHeight;
-}
-
-function renderBotResponse(data) {
-  const msgList = document.getElementById("chat-messages-list");
-  const row = document.createElement("div");
-  row.className = "msg-row bot";
-
-  const cacheBadge = data.cache_hit
-    ? `<span class="badge cache">⚡ Cache: HIT (<10ms)</span>`
-    : `<span class="badge" style="background: rgba(255,255,255,0.06); color: var(--text-secondary)">⚡ Cache: MISS</span>`;
-
-  const guardBadge = data.guardrail_passed
-    ? `<span class="badge pass">🛡️ Guardrails: PASS (${Math.round((data.faithfulness_score || 1) * 100)}%)</span>`
-    : `<span class="badge" style="background: rgba(244,63,94,0.15); color: var(--accent-rose)">🛡️ Guardrails: REFUSED</span>`;
-
-  const multiBadge = data.multi_hop_used
-    ? `<span class="badge multi">🧠 Multi-Hop Reasoning</span>`
-    : "";
-
-  const graphBadge = data.graph_relations?.length > 0
-    ? `<span class="badge" style="background: rgba(168,85,247,0.15); color: var(--accent-violet)">🕸️ ${data.graph_relations.length} Graph Triples</span>`
-    : "";
-
-  let sourcesHtml = "";
-  if (data.sources?.length > 0) {
-    sourcesHtml = `
-      <details style="margin-top: 12px; font-size: 12px; border-top: 1px solid var(--border-glass); padding-top: 8px;">
-        <summary style="color: var(--accent-cyan); cursor: pointer; font-weight: 500;">📄 View ${data.sources.length} Grounded Source Chunks</summary>
-        <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 8px;">
-          ${data.sources.map((s, idx) => `
-            <div style="background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: 8px; border-left: 2px solid var(--accent-cyan);">
-              <strong>[${idx + 1}] ${s.metadata?.source || "Source"}</strong>
-              <p style="margin-top: 4px; color: var(--text-secondary);">${escapeHtml(s.content)}</p>
-            </div>
-          `).join("")}
-        </div>
-      </details>
-    `;
-  }
-
-  let traceHtml = "";
-  if (data.trace?.total_duration_ms) {
-    traceHtml = `
-      <details style="margin-top: 8px; font-size: 11px; color: var(--text-muted);">
-        <summary style="cursor: pointer;">🔍 Decision Trace & Latency (${data.trace.total_duration_ms} ms)</summary>
-        <pre style="margin-top: 6px; padding: 8px; background: rgba(0,0,0,0.4); border-radius: 6px; overflow-x: auto;">${JSON.stringify(data.trace, null, 2)}</pre>
-      </details>
-    `;
-  }
-
-  row.innerHTML = `
-    <div class="msg-avatar">🌟</div>
-    <div class="msg-content">
-      <div class="badge-row">
-        ${cacheBadge}
-        ${guardBadge}
-        ${multiBadge}
-        ${graphBadge}
-      </div>
-      <div>${formatMarkdown(data.answer || "")}</div>
-      ${sourcesHtml}
-      ${traceHtml}
-    </div>
-  `;
-  msgList.appendChild(row);
-  msgList.scrollTop = msgList.scrollHeight;
-}
-
-// Ingestion Trigger
-function initIngestion() {
-  const btn = document.getElementById("btn-ingest-corpus");
-  if (!btn) return;
-  btn.addEventListener("click", async () => {
-    btn.innerText = "⏳ Ingesting AI/ML Knowledge Base...";
-    btn.disabled = true;
-    try {
-      const res = await fetch("/ingest", { method: "POST" });
       const data = await res.json();
-      alert(`✅ Ingestion Complete!\n- Loaded: ${data.documents_loaded} docs\n- Chunks: ${data.chunks_created}\n- Graph Triples: ${data.graph_triples_indexed}`);
-      fetchHealth();
-      if (graphVisualizer) graphVisualizer.loadGraphData();
-    } catch (e) {
-      alert(`Ingestion failed: ${e.message}`);
-    } finally {
-      btn.innerText = "📥 Ingest Entire AI/ML Corpus";
-      btn.disabled = false;
+
+      loadingRow.remove();
+      appendBotResponse(data);
+      refreshSystemHealth();
+    } catch (err) {
+      loadingRow.remove();
+      appendMessage("bot", `❌ Error querying s@r@h: ${err.message}`);
     }
+  }
+
+  btnChatSend.addEventListener("click", handleSendChat);
+  chatInput.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") handleSendChat();
   });
-}
 
-// Telemetry & Drift Fetcher
-async function fetchTelemetry() {
-  try {
-    const res = await fetch("/metrics/telemetry");
-    const data = await res.json();
-    const sum = data.summary || {};
-
-    document.getElementById("telemetry-total-q").innerText = sum.total_queries || 0;
-    document.getElementById("telemetry-avg-faith").innerText = `${Math.round((sum.avg_faithfulness || 1) * 100)}%`;
-    document.getElementById("telemetry-drift-rate").innerText = `${sum.hallucination_rate_pct || 0}%`;
-    document.getElementById("telemetry-avg-latency").innerText = `${sum.avg_latency_ms || 0} ms`;
-
-    const logsContainer = document.getElementById("telemetry-logs-table");
-    if (logsContainer && data.recent_logs) {
-      logsContainer.innerHTML = data.recent_logs.map(log => `
-        <tr>
-          <td style="padding: 10px; border-bottom: 1px solid var(--border-glass); color: var(--accent-cyan);">${log.time}</td>
-          <td style="padding: 10px; border-bottom: 1px solid var(--border-glass);">${escapeHtml(log.query)}</td>
-          <td style="padding: 10px; border-bottom: 1px solid var(--border-glass); color: var(--accent-emerald);">${log.faithfulness}</td>
-          <td style="padding: 10px; border-bottom: 1px solid var(--border-glass);">${log.passed ? "✅ Pass" : "⛔ Refused"}</td>
-          <td style="padding: 10px; border-bottom: 1px solid var(--border-glass); color: var(--accent-violet);">${log.cache_hit ? "⚡ Hit" : "Miss"}</td>
-          <td style="padding: 10px; border-bottom: 1px solid var(--border-glass);">${log.latency_ms}</td>
-        </tr>
-      `).join("");
-    }
-  } catch (e) {
-    console.warn("Telemetry fetch error:", e);
+  function appendMessage(role, text) {
+    const row = document.createElement("div");
+    row.className = `msg-row ${role}`;
+    row.innerHTML = `
+      <div class="msg-avatar">${role === "user" ? "R" : "🌟"}</div>
+      <div class="msg-content">
+        <p>${escapeHtml(text)}</p>
+      </div>
+    `;
+    chatMessagesList.appendChild(row);
+    chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
+    return row;
   }
-}
 
-// Memory Vault Fetcher
-async function fetchMemory() {
-  try {
-    const res = await fetch(`/memory/facts/${currentSession.sessionId}`);
-    const data = await res.json();
+  function appendLoadingMessage() {
+    const row = document.createElement("div");
+    row.className = "msg-row bot";
+    row.innerHTML = `
+      <div class="msg-avatar">🌟</div>
+      <div class="msg-content">
+        <div style="display: flex; gap: 6px; align-items: center; color: var(--accent-cyan); font-size: 13px;">
+          <span class="status-dot"></span> s@r@h is reasoning across Hybrid Search, GraphRAG & Guardrails...
+        </div>
+      </div>
+    `;
+    chatMessagesList.appendChild(row);
+    chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
+    return row;
+  }
 
-    const factsContainer = document.getElementById("memory-facts-list");
-    if (factsContainer) {
-      const facts = data.facts || {};
-      const keys = Object.keys(facts);
-      if (keys.length === 0) {
-        factsContainer.innerHTML = `<p style="color: var(--text-muted); font-size: 13.5px;">No facts remembered yet. In chat, say: <em>"My name is Rishi and I prefer PyTorch"</em></p>`;
-      } else {
-        factsContainer.innerHTML = keys.map(k => `
-          <div style="display: flex; justify-content: space-between; padding: 10px 14px; background: rgba(255,255,255,0.04); border-radius: 8px; border: 1px solid var(--border-glass);">
-            <strong style="color: var(--accent-cyan);">${k.replace('_', ' ').toUpperCase()}:</strong>
-            <span>${escapeHtml(facts[k])}</span>
+  function appendBotResponse(data) {
+    const row = document.createElement("div");
+    row.className = "msg-row bot";
+
+    const isGuardPassed = data.guardrail_passed !== false;
+    const isCacheHit = data.cache_hit === true;
+    const isWebGrounded = data.web_grounded === true;
+    const isMultiHop = data.multi_hop_used === true;
+
+    let badgesHtml = "";
+    if (isCacheHit) {
+      badgesHtml += `<span class="badge" style="background: rgba(0,240,255,0.2); color: var(--accent-cyan);">⚡ Cache: HIT (&lt;10ms)</span>`;
+    } else {
+      badgesHtml += `<span class="badge ${isGuardPassed ? "pass" : "fail"}">${isGuardPassed ? "🛡️ Guardrail: PASSED" : "⚠️ Guardrail: REWRITTEN"}</span>`;
+    }
+    if (isWebGrounded) {
+      badgesHtml += `<span class="badge" style="background: rgba(16,185,129,0.15); color: var(--accent-emerald);">🌐 Live Web Grounded</span>`;
+    }
+    if (isMultiHop) {
+      badgesHtml += `<span class="badge" style="background: rgba(168,85,247,0.15); color: var(--accent-violet);">🧩 Multi-Hop Decomposed</span>`;
+    }
+    if (data.faithfulness_score) {
+      badgesHtml += `<span class="badge" style="background: rgba(255,255,255,0.06);">Faithfulness: ${Math.round(data.faithfulness_score * 100)}%</span>`;
+    }
+
+    let sourcesHtml = "";
+    if (data.sources && data.sources.length > 0) {
+      sourcesHtml = `
+        <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border-glass); font-size: 12.5px;">
+          <strong style="color: var(--accent-cyan);">📚 Verified Sources & Citations:</strong>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px;">
+            ${data.sources
+              .slice(0, 3)
+              .map(
+                (s, i) =>
+                  `<span style="padding: 4px 8px; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-glass); color: var(--text-secondary);">[${i + 1}] ${escapeHtml(s.metadata.source || "Knowledge Base")}</span>`
+              )
+              .join("")}
           </div>
-        `).join("");
-      }
+        </div>
+      `;
     }
-  } catch (e) {
-    console.warn("Memory fetch error:", e);
+
+    let traceHtml = "";
+    if (data.trace && data.trace.steps) {
+      traceHtml = `
+        <details style="margin-top: 10px; font-size: 12px; color: var(--text-muted);">
+          <summary style="cursor: pointer; color: var(--accent-cyan);">🔍 Inspect Decision Trace (${data.trace.total_duration_ms || 0} ms)</summary>
+          <div style="margin-top: 8px; background: rgba(0,0,0,0.4); padding: 10px; border-radius: 8px; font-family: monospace;">
+            ${data.trace.steps
+              .map((st) => `<div>• [${st.status.toUpperCase()}] <strong>${st.step_name}</strong>: ${st.duration_ms}ms</div>`)
+              .join("")}
+          </div>
+        </details>
+      `;
+    }
+
+    row.innerHTML = `
+      <div class="msg-avatar">🌟</div>
+      <div class="msg-content">
+        <div class="badge-row">${badgesHtml}</div>
+        <p style="white-space: pre-wrap; line-height: 1.6;">${escapeHtml(data.answer)}</p>
+        ${sourcesHtml}
+        ${traceHtml}
+      </div>
+    `;
+    chatMessagesList.appendChild(row);
+    chatMessagesList.scrollTop = chatMessagesList.scrollHeight;
   }
-}
 
-// Simple Markdown Formatter
-function formatMarkdown(text) {
-  let html = escapeHtml(text);
-  // Bold
-  html = html.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-  // Code blocks
-  html = html.replace(/```([a-z]*)\n([\s\S]*?)```/g, "<pre style='background: rgba(0,0,0,0.5); padding: 12px; border-radius: 8px; margin: 8px 0; overflow-x: auto;'><code>$2</code></pre>");
-  // Inline code
-  html = html.replace(/`([^`]+)`/g, "<code style='background: rgba(255,255,255,0.1); padding: 2px 5px; border-radius: 4px; color: var(--accent-cyan);'>$1</code>");
-  // Citations [1], [2]
-  html = html.replace(/\[(\d+)\]/g, "<span style='color: var(--accent-cyan); font-weight: 700; background: rgba(0,240,255,0.15); padding: 1px 5px; border-radius: 4px;'>[$1]</span>");
-  // Newlines
-  html = html.replace(/\n/g, "<br/>");
-  return html;
-}
+  // --- Telemetry Loader ---
+  async function loadTelemetry() {
+    try {
+      const res = await fetch("/metrics/telemetry");
+      const data = await res.json();
+      if (data && data.summary) {
+        document.getElementById("telemetry-total-q").innerText = data.summary.total_queries || "0";
+        document.getElementById("telemetry-avg-faith").innerText = `${Math.round((data.summary.avg_faithfulness || 1.0) * 100)}%`;
+        document.getElementById("telemetry-drift-rate").innerText = `${data.summary.hallucination_rate_pct || 0}%`;
+        document.getElementById("telemetry-avg-latency").innerText = `${Math.round(data.summary.avg_latency_ms || 0)} ms`;
+      }
 
-function escapeHtml(string) {
-  return String(string).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
+      if (data && data.recent_logs) {
+        const tableBody = document.getElementById("telemetry-logs-table");
+        if (data.recent_logs.length === 0) {
+          tableBody.innerHTML = `<tr><td colspan="6" style="padding: 20px; text-align: center; color: var(--text-muted);">No queries logged yet.</td></tr>`;
+        } else {
+          tableBody.innerHTML = data.recent_logs
+            .map(
+              (log) => `
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+              <td style="padding: 8px 10px; color: var(--text-muted);">${log.timestamp}</td>
+              <td style="padding: 8px 10px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(log.query)}</td>
+              <td style="padding: 8px 10px; color: var(--accent-emerald); font-weight: 600;">${Math.round(log.faithfulness * 100)}%</td>
+              <td style="padding: 8px 10px;"><span class="badge ${log.guardrail_passed ? "pass" : "fail"}">${log.guardrail_passed ? "PASS" : "HEAL"}</span></td>
+              <td style="padding: 8px 10px;">${log.cache_hit ? "⚡ HIT" : "MISS"}</td>
+              <td style="padding: 8px 10px; color: var(--accent-violet);">${Math.round(log.latency_ms)} ms</td>
+            </tr>
+          `
+            )
+            .join("");
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to load telemetry:", e);
+    }
+  }
+
+  // --- Memory Loader ---
+  async function loadMemory() {
+    try {
+      const res = await fetch(`/memory/facts/${sessionId}`);
+      const data = await res.json();
+      const list = document.getElementById("memory-facts-list");
+      if (data && data.facts && Object.keys(data.facts).length > 0) {
+        list.innerHTML = Object.entries(data.facts)
+          .map(
+            ([k, v]) => `
+            <div style="display: flex; justify-content: space-between; padding: 10px 14px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass);">
+              <span style="color: var(--accent-cyan); font-weight: 500;">${escapeHtml(k)}</span>
+              <span style="color: var(--text-primary); font-weight: 600;">${escapeHtml(v)}</span>
+            </div>
+          `
+          )
+          .join("");
+      } else {
+        list.innerHTML = `<p style="color: var(--text-muted); font-size: 13.5px;">No persistent facts saved yet. Chat with s@r@h (e.g. "My name is Rishi and I like Python") to auto-extract entities!</p>`;
+      }
+    } catch (e) {
+      console.warn("Failed to load memory:", e);
+    }
+  }
+
+  // --- Meta-RAG Evolution Loader & Controls ---
+  async function loadEvolutionStatus() {
+    try {
+      const res = await fetch("/evolution/status");
+      const data = await res.json();
+      if (data && data.current_parameters) {
+        const p = data.current_parameters;
+        document.getElementById("evo-version-tag").innerText = `${p.version} Active`;
+        document.getElementById("evo-v-weight").innerText = p.vector_weight;
+        document.getElementById("evo-b-weight").innerText = p.bm25_weight;
+        document.getElementById("evo-rel-thresh").innerText = p.relevance_threshold;
+        document.getElementById("evo-rrf-k").innerText = p.rrf_k;
+      }
+    } catch (e) {
+      console.warn("Failed to load evolution status:", e);
+    }
+  }
+
+  // Auto-Tune Button
+  const btnAutoTune = document.getElementById("btn-trigger-autotune");
+  if (btnAutoTune) {
+    btnAutoTune.addEventListener("click", async () => {
+      btnAutoTune.innerText = "⏳ Self-Tuning In Progress...";
+      try {
+        const res = await fetch("/evolution/auto-tune", { method: "POST" });
+        const data = await res.json();
+        alert(`🧬 Meta-RAG Optimization Result:\n\n` + data.mutations.join("\n"));
+        loadEvolutionStatus();
+        refreshSystemHealth();
+      } catch (e) {
+        alert("Self-tuning error: " + e.message);
+      } finally {
+        btnAutoTune.innerText = "🔄 Run Autonomous Self-Tuning";
+      }
+    });
+  }
+
+  // Synthetic Train Button
+  const btnSyntheticTrain = document.getElementById("btn-run-synthetic-train");
+  const synthStatus = document.getElementById("synthetic-train-status");
+  if (btnSyntheticTrain) {
+    btnSyntheticTrain.addEventListener("click", async () => {
+      btnSyntheticTrain.innerText = "⏳ Generating QA & Training...";
+      synthStatus.innerText = "Mining concepts & running self-evaluation benchmark...";
+      try {
+        const res = await fetch("/evolution/synthetic-train", { method: "POST" });
+        const data = await res.json();
+        synthStatus.innerHTML = `
+          <strong style="color: var(--accent-emerald);">✓ Self-Trained Accuracy: ${data.self_trained_accuracy}</strong>
+          (${data.passed}/${data.dataset_size} QA pairs passed retrieval gates).
+        `;
+      } catch (e) {
+        synthStatus.innerText = "Error running synthetic trainer: " + e.message;
+      } finally {
+        btnSyntheticTrain.innerText = "🚀 Generate Synthetic QA & Train";
+      }
+    });
+  }
+
+  // External RAG Modifier Button
+  const btnAuditRag = document.getElementById("btn-audit-external-rag");
+  const ragInput = document.getElementById("external-rag-input");
+  const ragResults = document.getElementById("external-rag-results");
+
+  if (btnAuditRag) {
+    btnAuditRag.addEventListener("click", async () => {
+      const code = ragInput.value.trim();
+      if (!code) {
+        alert("Please paste external RAG code or configuration to audit.");
+        return;
+      }
+
+      btnAuditRag.innerText = "🔍 Auditing & Generating Patch...";
+      try {
+        const res = await fetch("/evolution/audit-rag", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ config_or_code: code }),
+        });
+        const data = await res.json();
+
+        ragResults.style.display = "block";
+        ragResults.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h4 style="font-size: 16px; color: var(--accent-cyan);">Diagnostic Health Score: ${data.overall_health_score}/100</h4>
+            <span class="badge ${data.overall_health_score >= 70 ? "pass" : "fail"}">${data.retrieval_architecture}</span>
+          </div>
+
+          <div style="margin-bottom: 12px;">
+            <strong style="color: #ef4444; font-size: 13px;">🚨 Vulnerabilities Detected:</strong>
+            <ul style="margin: 6px 0 0 18px; color: var(--text-secondary); font-size: 13px;">
+              ${data.vulnerabilities_detected.map((v) => `<li>${escapeHtml(v)}</li>`).join("")}
+            </ul>
+          </div>
+
+          <div style="margin-bottom: 14px;">
+            <strong style="color: var(--accent-emerald); font-size: 13px;">💡 Optimization Recommendations:</strong>
+            <ul style="margin: 6px 0 0 18px; color: var(--text-secondary); font-size: 13px;">
+              ${data.optimization_recommendations.map((r) => `<li>${escapeHtml(r)}</li>`).join("")}
+            </ul>
+          </div>
+
+          <div>
+            <strong style="color: var(--accent-violet); font-size: 13px;">🛠️ s@r@h Auto-Generated Upgraded RAG Implementation:</strong>
+            <pre style="margin-top: 8px; background: rgba(0,0,0,0.5); padding: 12px; border-radius: 8px; border: 1px solid var(--border-glass); color: #a5f3fc; font-size: 12px; overflow-x: auto;"><code>${escapeHtml(data.generated_code_patch)}</code></pre>
+          </div>
+        `;
+      } catch (e) {
+        alert("Error auditing RAG: " + e.message);
+      } finally {
+        btnAuditRag.innerText = "🔍 Audit & Auto-Modify External RAG";
+      }
+    });
+  }
+
+  // --- Ingest Corpus Button ---
+  const btnIngest = document.getElementById("btn-ingest-corpus");
+  if (btnIngest) {
+    btnIngest.addEventListener("click", async () => {
+      btnIngest.innerText = "⏳ Ingesting AI/ML Textbooks...";
+      try {
+        const res = await fetch("/ingest", { method: "POST" });
+        const data = await res.json();
+        alert(`✓ Ingestion Complete!\n\nDocuments Loaded: ${data.documents_loaded}\nChunks Indexed: ${data.chunks_indexed}\n3D Graph Triples: ${data.graph_triples_indexed}`);
+        refreshSystemHealth();
+      } catch (e) {
+        alert("Ingestion error: " + e.message);
+      } finally {
+        btnIngest.innerText = "📥 Ingest Entire AI/ML Corpus";
+      }
+    });
+  }
+
+  function escapeHtml(str) {
+    if (!str) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+});

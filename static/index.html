@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>s@r@h — Autonomous Knowledge & RAG Host</title>
+  <title>s@r@h — Autonomous Knowledge & Meta-RAG Host</title>
   <link rel="stylesheet" href="/static/css/styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -20,7 +20,7 @@
         <div class="brand-logo">🌟</div>
         <div>
           <div class="brand-title">s@r@h</div>
-          <span class="brand-badge">Autonomous Host</span>
+          <span class="brand-badge">Meta-RAG Host</span>
         </div>
       </div>
 
@@ -30,6 +30,9 @@
         </li>
         <li class="nav-item" data-view="graph">
           <span>🕸️</span> 3D Knowledge Graph
+        </li>
+        <li class="nav-item" data-view="evolution">
+          <span>🧬</span> Meta-RAG & Evolution
         </li>
         <li class="nav-item" data-view="telemetry">
           <span>📊</span> Quality & Telemetry
@@ -47,7 +50,7 @@
           <div class="user-avatar">R</div>
           <div>
             <div style="font-size: 13px; font-weight: 600;">Rishi</div>
-            <div style="font-size: 11px; color: var(--text-muted);">Lead AI Engineer</div>
+            <div style="font-size: 11px; color: var(--text-muted);">Lead AI Architect</div>
           </div>
         </div>
         <span style="font-size: 16px; cursor: pointer;">⚙️</span>
@@ -61,13 +64,14 @@
         <div class="system-status">
           <span class="status-dot"></span>
           <span style="font-size: 13.5px; font-weight: 500; color: var(--text-secondary);">
-            s@r@h v3.0 <span style="color: var(--accent-cyan);">ONLINE</span> (CPU-Optimized)
+            s@r@h v4.0 <span style="color: var(--accent-cyan);">ONLINE</span> (Meta-RAG Active)
           </span>
         </div>
 
         <div class="quick-stats">
-          <div class="stat-pill">Vector Chunks: <span id="top-chunks-count">18</span></div>
-          <div class="stat-pill">Graph Triples: <span id="top-triples-count">36</span></div>
+          <div class="stat-pill">Gen: <span id="top-gen-version">v1</span></div>
+          <div class="stat-pill">Vector Chunks: <span id="top-chunks-count">50</span></div>
+          <div class="stat-pill">Graph Triples: <span id="top-triples-count">41</span></div>
           <div class="stat-pill">Cache Hit: <span id="top-cache-rate">100%</span></div>
           <div class="stat-pill">LLM: <span id="top-llm-provider">local</span></div>
         </div>
@@ -84,11 +88,12 @@
                 <div class="badge-row">
                   <span class="badge pass">🛡️ Tri-Guardrails Active</span>
                   <span class="badge" style="background: rgba(168,85,247,0.15); color: var(--accent-violet)">🕸️ GraphRAG Enabled</span>
+                  <span class="badge" style="background: rgba(0,240,255,0.15); color: var(--accent-cyan)">🧬 Meta-RAG Self-Tuning</span>
                 </div>
                 <p>Hello! I am <strong>s@r@h</strong> (<em>Self-Adaptive Reasoning & Retrieval Autonomous Host</em>).</p>
-                <p style="margin-top: 6px; color: var(--text-secondary);">I am powered by an enterprise 10-pillar architecture combining <strong>Hybrid Search</strong>, <strong>GraphRAG 3D</strong>, <strong>Persistent Memory</strong>, and <strong>NLI Guardrails</strong>.</p>
+                <p style="margin-top: 6px; color: var(--text-secondary);">I feature an autonomous <strong>Meta-RAG self-learning system</strong> that continuously trains on document concepts, adapts its retrieval weights, and can audit/modify external RAG models.</p>
                 <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
-                  <button onclick="document.getElementById('chat-query-input').value = this.innerText; document.getElementById('btn-chat-send').click();" style="padding: 6px 12px; border-radius: 8px; background: rgba(255,255,255,0.06); border: 1px solid var(--border-glass); color: var(--accent-cyan); font-size: 12px; cursor: pointer;">How does DeepSeek R1 reasoning work?</button>
+                  <button onclick="document.getElementById('chat-query-input').value = this.innerText; document.getElementById('btn-chat-send').click();" style="padding: 6px 12px; border-radius: 8px; background: rgba(255,255,255,0.06); border: 1px solid var(--border-glass); color: var(--accent-cyan); font-size: 12px; cursor: pointer;">How does DeepSeek R1 reasoning work with GRPO?</button>
                   <button onclick="document.getElementById('chat-query-input').value = this.innerText; document.getElementById('btn-chat-send').click();" style="padding: 6px 12px; border-radius: 8px; background: rgba(255,255,255,0.06); border: 1px solid var(--border-glass); color: var(--accent-cyan); font-size: 12px; cursor: pointer;">Explain LoRA parameter-efficient fine tuning</button>
                   <button onclick="document.getElementById('chat-query-input').value = this.innerText; document.getElementById('btn-chat-send').click();" style="padding: 6px 12px; border-radius: 8px; background: rgba(255,255,255,0.06); border: 1px solid var(--border-glass); color: var(--accent-cyan); font-size: 12px; cursor: pointer;">Compare Python generators and list comprehensions</button>
                 </div>
@@ -123,7 +128,85 @@
         </div>
       </section>
 
-      <!-- VIEW 3: Quality & Telemetry -->
+      <!-- VIEW 3: Meta-RAG & Self-Evolution Studio -->
+      <section id="view-evolution" class="view-section">
+        <div>
+          <h2 style="font-size: 24px; font-weight: 700;">🧬 Meta-RAG & Self-Evolution Studio</h2>
+          <p style="color: var(--text-secondary); font-size: 14px; margin-top: 4px;">Autonomous hyperparameter mutation, self-supervised QA generation, and external RAG modifier.</p>
+        </div>
+
+        <div class="card-grid">
+          <!-- Card 1: Autonomous Auto-Tuning -->
+          <div class="glass-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <h3 style="font-size: 16px; color: var(--accent-cyan);">⚡ Dynamic Hyperparameters</h3>
+              <span id="evo-version-tag" class="badge pass">v1 Active</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px; font-size: 13.5px;">
+              <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-secondary);">Vector Weight (ChromaDB):</span>
+                <strong id="evo-v-weight" style="color: var(--accent-cyan);">0.50</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-secondary);">BM25 Weight (Keywords):</span>
+                <strong id="evo-b-weight" style="color: var(--accent-violet);">0.50</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-secondary);">Relevance Threshold (Gate):</span>
+                <strong id="evo-rel-thresh" style="color: var(--accent-emerald);">0.30</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-secondary);">RRF Smoothing (k):</span>
+                <strong id="evo-rrf-k">60</strong>
+              </div>
+            </div>
+            <button id="btn-trigger-autotune" style="margin-top: 18px; width: 100%; padding: 10px; border-radius: 8px; background: rgba(0, 240, 255, 0.15); border: 1px solid var(--border-glass-glow); color: var(--accent-cyan); font-weight: 600; cursor: pointer;">
+              🔄 Run Autonomous Self-Tuning
+            </button>
+          </div>
+
+          <!-- Card 2: Self-Supervised QA Trainer -->
+          <div class="glass-card">
+            <h3 style="font-size: 16px; color: var(--accent-violet); margin-bottom: 10px;">🧠 Synthetic QA Benchmark</h3>
+            <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 14px;">
+              Mines concepts across textbooks and runs zero-human self-training evaluations.
+            </p>
+            <div id="synthetic-train-status" style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">
+              Status: Ready for self-training.
+            </div>
+            <button id="btn-run-synthetic-train" style="width: 100%; padding: 10px; border-radius: 8px; background: rgba(168, 85, 247, 0.15); border: 1px solid rgba(168, 85, 247, 0.4); color: var(--accent-violet); font-weight: 600; cursor: pointer;">
+              🚀 Generate Synthetic QA & Train
+            </button>
+          </div>
+        </div>
+
+        <!-- External RAG Model Modifier Studio -->
+        <div class="glass-card" style="margin-top: 16px;">
+          <h3 style="font-size: 17px; margin-bottom: 8px;">🔧 External RAG Inspector & Meta-Modifier</h3>
+          <p style="font-size: 13.5px; color: var(--text-secondary); margin-bottom: 14px;">
+            Paste any external RAG configuration, YAML, or Python code below. <strong>s@r@h</strong> will diagnose its architectural vulnerabilities and generate an optimized, drop-in replacement patch.
+          </p>
+
+          <textarea id="external-rag-input" rows="5" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid var(--border-glass); border-radius: 10px; color: var(--text-primary); padding: 12px; font-family: monospace; font-size: 13px; outline: none;" placeholder="e.g.
+from langchain.vectorstores import Chroma
+from langchain.embeddings import OpenAIEmbeddings
+
+vectorstore = Chroma.from_documents(docs, OpenAIEmbeddings())
+retriever = vectorstore.as_retriever(search_kwargs={'k': 3})
+# Missing: BM25, Cross-Encoder, NLI Guardrails, Cache"></textarea>
+
+          <button id="btn-audit-external-rag" style="margin-top: 12px; padding: 12px 20px; border-radius: 10px; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-violet)); border: none; color: #fff; font-weight: 600; font-size: 13.5px; cursor: pointer; box-shadow: var(--glow-cyan);">
+            🔍 Audit & Auto-Modify External RAG
+          </button>
+
+          <!-- Audit Results -->
+          <div id="external-rag-results" style="display: none; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-glass);">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 4: Quality & Telemetry -->
       <section id="view-telemetry" class="view-section">
         <div>
           <h2 style="font-size: 24px; font-weight: 700;">📊 Real-Time Quality & Drift Telemetry</h2>
@@ -171,7 +254,7 @@
         </div>
       </section>
 
-      <!-- VIEW 4: Memory & Profile -->
+      <!-- VIEW 5: Memory & Profile -->
       <section id="view-memory" class="view-section">
         <div>
           <h2 style="font-size: 24px; font-weight: 700;">🧠 Memory & Personalization Vault</h2>
@@ -188,7 +271,7 @@
         </div>
       </section>
 
-      <!-- VIEW 5: Knowledge Studio -->
+      <!-- VIEW 6: Knowledge Studio -->
       <section id="view-knowledge" class="view-section">
         <div>
           <h2 style="font-size: 24px; font-weight: 700;">📁 Knowledge Studio & Ingestion</h2>

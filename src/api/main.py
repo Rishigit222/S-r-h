@@ -1,4 +1,4 @@
-"""FastAPI application — s@r@h: Self-Adaptive Reasoning & Retrieval Autonomous Host."""
+"""FastAPI application — s@r@h: Self-Adaptive Reasoning & Retrieval Autonomous Host with Meta-RAG."""
 
 import time
 import uuid
@@ -34,11 +34,16 @@ from src.observability.drift_monitor import drift_monitor
 from src.observability.tracer import QueryTracer
 from src.api.auth import auth_manager, UserLoginRequest, ApiKeyVaultRequest
 
+# Meta-RAG & Self-Evolution Subsystems
+from src.evolution.self_optimizer import self_optimizer
+from src.evolution.synthetic_trainer import synthetic_trainer
+from src.evolution.meta_modifier import rag_meta_modifier
+
 
 app = FastAPI(
-    title="s@r@h — Autonomous Knowledge & RAG Host",
-    description="s@r@h: Self-Adaptive Reasoning & Retrieval Autonomous Host with 3D GraphRAG, Memory Agent, and Telemetry.",
-    version="3.0.0",
+    title="s@r@h — Autonomous Knowledge & Meta-RAG Host",
+    description="s@r@h: Self-Adaptive Reasoning & Retrieval Autonomous Host with 3D GraphRAG, Meta-Learning, and External RAG Modifier.",
+    version="4.0.0",
 )
 
 # Mount Static Files for Modern UI
@@ -99,11 +104,17 @@ class IngestResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     engine_name: str
+    generation_version: int
     vector_store_count: int
     graph_triples_count: int
     llm_provider: str
     cache_stats: dict
     telemetry_summary: dict
+    dynamic_hyperparameters: dict
+
+
+class ExternalRAGAuditRequest(BaseModel):
+    config_or_code: str = Field(..., description="External RAG configuration, YAML, JSON, or Python code to audit and modify")
 
 
 # --- Endpoints ---
@@ -123,12 +134,87 @@ async def health():
     return HealthResponse(
         status="healthy",
         engine_name="s@r@h",
+        generation_version=self_optimizer.params.generation_version,
         vector_store_count=vector_store.count(),
         graph_triples_count=knowledge_graph.count(),
         llm_provider=settings.get_effective_provider(),
         cache_stats=semantic_cache.stats(),
         telemetry_summary=drift_monitor.get_summary_metrics(),
+        dynamic_hyperparameters={
+            "vector_weight": self_optimizer.params.vector_weight,
+            "bm25_weight": self_optimizer.params.bm25_weight,
+            "relevance_threshold": self_optimizer.params.relevance_threshold,
+            "rrf_k": self_optimizer.params.rrf_k,
+        },
     )
+
+
+# --- Meta-RAG & Self-Evolution Endpoints ---
+
+@app.post("/evolution/auto-tune")
+async def trigger_auto_tune():
+    """Triggers autonomous hyperparameter tuning based on real-time telemetry drift."""
+    return self_optimizer.auto_tune()
+
+
+@app.post("/evolution/synthetic-train")
+async def run_synthetic_training():
+    """Generates synthetic QA pairs from knowledge documents and executes self-training benchmark."""
+    qa_pairs = synthetic_trainer.generate_synthetic_dataset(max_pairs=8)
+    vector_store, bm25_store = _get_stores()
+    results = []
+
+    for pair in qa_pairs:
+        v_res = vector_store.search(pair.question, top_k=5)
+        b_res = bm25_store.search(pair.question, top_k=5)
+        fused = reciprocal_rank_fusion(
+            v_res, b_res,
+            k=self_optimizer.params.rrf_k,
+            vector_weight=self_optimizer.params.vector_weight,
+            bm25_weight=self_optimizer.params.bm25_weight
+        )
+        reranked = rerank(pair.question, fused, top_k=3)
+        relevance = check_relevance(reranked, threshold=self_optimizer.params.relevance_threshold)
+        results.append({
+            "question": pair.question,
+            "target_entity": pair.target_entity,
+            "difficulty": pair.difficulty,
+            "retrieval_passed": relevance.passed,
+            "best_score": relevance.best_score,
+        })
+
+    passed_count = sum(1 for r in results if r["retrieval_passed"])
+    accuracy_pct = round((passed_count / len(results) * 100), 1) if results else 100.0
+
+    return {
+        "dataset_size": len(results),
+        "self_trained_accuracy": f"{accuracy_pct}%",
+        "passed": passed_count,
+        "failed": len(results) - passed_count,
+        "evaluations": results,
+    }
+
+
+@app.post("/evolution/audit-rag")
+async def audit_external_rag(req: ExternalRAGAuditRequest):
+    """Audits external RAG model configurations and generates an optimized drop-in architecture."""
+    report = rag_meta_modifier.audit_and_modify(req.config_or_code)
+    return report
+
+
+@app.get("/evolution/status")
+async def get_evolution_status():
+    """Returns current self-evolved hyperparameters and mutation history."""
+    return {
+        "current_parameters": {
+            "version": f"v{self_optimizer.params.generation_version}",
+            "vector_weight": self_optimizer.params.vector_weight,
+            "bm25_weight": self_optimizer.params.bm25_weight,
+            "relevance_threshold": self_optimizer.params.relevance_threshold,
+            "rrf_k": self_optimizer.params.rrf_k,
+        },
+        "mutation_history": self_optimizer.get_mutation_history(15),
+    }
 
 
 # Auth Endpoints
@@ -180,7 +266,7 @@ async def ingest_documents(directory: str = settings.documents_dir):
     vector_store.add_chunks(chunks)
     bm25_store.add_chunks(chunks)
 
-    # Option D: Knowledge Graph RAG Ingestion
+    # Knowledge Graph Ingestion
     knowledge_graph.extract_and_index_chunks(chunks)
 
     return IngestResponse(
@@ -271,7 +357,7 @@ async def query(request: QueryRequest):
         "sub_queries": decomp.sub_queries,
     })
 
-    # 5. Knowledge Graph RAG Traversal (Option D)
+    # 5. Knowledge Graph RAG Traversal
     graph_triples = []
     if request.enable_graph_rag:
         for sq in decomp.sub_queries:
@@ -283,12 +369,19 @@ async def query(request: QueryRequest):
     web_grounded = False
 
     while True:
-        # Step 6: Hybrid Retrieval (Vector + BM25)
+        # Step 6: Hybrid Retrieval using Dynamic Self-Tuned Hyperparameters
         all_fused = []
         for q in decomp.sub_queries:
-            v_res = vector_store.search(q, top_k=settings.top_k_retrieval)
-            b_res = bm25_store.search(q, top_k=settings.top_k_retrieval)
-            all_fused.extend(reciprocal_rank_fusion(v_res, b_res))
+            v_res = vector_store.search(q, top_k=self_optimizer.params.top_k_retrieval)
+            b_res = bm25_store.search(q, top_k=self_optimizer.params.top_k_retrieval)
+            all_fused.extend(
+                reciprocal_rank_fusion(
+                    v_res, b_res,
+                    k=self_optimizer.params.rrf_k,
+                    vector_weight=self_optimizer.params.vector_weight,
+                    bm25_weight=self_optimizer.params.bm25_weight,
+                )
+            )
 
         seen_ids = set()
         fused_results = []
@@ -306,8 +399,8 @@ async def query(request: QueryRequest):
             "best_score": reranked[0]["rerank_score"] if reranked else -99.0
         })
 
-        # Step 8: Pre-generation Relevance Gate
-        relevance = check_relevance(reranked)
+        # Step 8: Pre-generation Relevance Gate with Self-Tuned Threshold
+        relevance = check_relevance(reranked, threshold=self_optimizer.params.relevance_threshold)
         tracer.record_step("Relevance Gate", "passed" if relevance.passed else "blocked", {
             "best_score": relevance.best_score,
             "threshold": relevance.threshold,
@@ -379,7 +472,7 @@ async def query(request: QueryRequest):
         if guardrail_passed:
             sanitized_answer = security_sanitizer.sanitize_output(rag_response.answer)
 
-            # Memory persistence (Option B)
+            # Memory persistence
             memory_store.add_message(request.session_id, "assistant", sanitized_answer)
 
             final_response = {
@@ -402,7 +495,7 @@ async def query(request: QueryRequest):
             semantic_cache.store(sanitized_query, final_response)
             final_response["trace"] = tracer.finalize()
 
-            # Telemetry logging (Option C)
+            # Telemetry logging
             drift_monitor.log_query(
                 trace_id=tracer.trace.trace_id, query=request.question,
                 faithfulness=faithfulness.score, hallucination_risk=round(1.0 - faithfulness.score, 3),
