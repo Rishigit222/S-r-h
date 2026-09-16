@@ -61,11 +61,11 @@ class QueryTracer:
 
     def __init__(self, trace_id: str, query: str):
         self.trace = ExecutionTrace(trace_id=trace_id, query=query)
-        self.start_time = time.time()
-        self._current_step_start = time.time()
+        self.start_time = time.perf_counter()
+        self._current_step_start = time.perf_counter()
 
     def record_step(self, name: str, status: str = "success", details: dict | None = None):
-        now = time.time()
+        now = time.perf_counter()
         duration_ms = (now - self._current_step_start) * 1000
         self.trace.steps.append(
             StepTrace(
@@ -115,5 +115,6 @@ class QueryTracer:
         self.trace.heal_action_taken = action
 
     def finalize(self) -> dict:
-        self.trace.total_duration_ms = round((time.time() - self.start_time) * 1000, 2)
+        elapsed_ms = (time.perf_counter() - self.start_time) * 1000
+        self.trace.total_duration_ms = max(round(elapsed_ms, 2), 0.01)
         return self.trace.to_dict()
