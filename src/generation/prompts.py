@@ -11,6 +11,17 @@ RULES:
 6. If multiple chunks support a claim, cite all of them."""
 
 
+STRICT_RAG_SYSTEM_PROMPT = """You are a STRICTLY grounded assistant. You may ONLY use information explicitly stated in the provided context chunks.
+
+CRITICAL RULES:
+1. EVERY sentence in your answer MUST be directly supported by the context chunks.
+2. EVERY claim MUST include a citation using [1], [2], etc.
+3. Do NOT infer, extrapolate, or add ANY information not explicitly in the chunks.
+4. If the context is insufficient, respond ONLY with: "I don't have enough information to answer this question."
+5. Use SHORT, direct sentences. Prefer quoting relevant phrases from the context.
+6. If you are uncertain about ANY claim, omit it entirely."""
+
+
 def build_rag_prompt(query: str, context_chunks: list[dict]) -> str:
     """Build a RAG prompt with numbered context chunks."""
     context_parts = []

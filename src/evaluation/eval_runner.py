@@ -1,4 +1,9 @@
-"""RAG Evaluation Runner — benchmarks system against Golden Dataset."""
+"""RAG Evaluation Runner — benchmarks system against Golden Dataset.
+
+Supports two modes:
+1. Standard mode: Runs queries against the API and evaluates responses
+2. Engine mode: Runs queries through the heal loop and evaluates self-healing
+"""
 
 import json
 import time
@@ -6,7 +11,7 @@ from pathlib import Path
 import requests
 from rich.console import Console
 
-from src.evaluation.metrics import compute_citation_coverage, evaluate_refusal
+from src.evaluation.metrics import compute_citation_coverage, evaluate_refusal, compute_engine_health_score
 
 console = Console()
 
@@ -15,8 +20,9 @@ GOLDEN_DATASET_PATH = Path(__file__).parent / "golden_dataset.json"
 
 
 def run_evaluation(threshold: float = 0.80):
+    """Run the standard evaluation suite against the API."""
     console.print("[bold cyan]════════════════════════════════════════════════════════════[/bold cyan]")
-    console.print("[bold cyan]       📊 RAG ENGINE AUTOMATED EVALUATION SUITE             [/bold cyan]")
+    console.print("[bold cyan]       📊 SELF-HEALING RAG ENGINE — EVALUATION SUITE        [/bold cyan]")
     console.print("[bold cyan]════════════════════════════════════════════════════════════[/bold cyan]\n")
 
     if not GOLDEN_DATASET_PATH.exists():
@@ -74,11 +80,12 @@ def run_evaluation(threshold: float = 0.80):
                 "refusal_correct": refusal_ok,
                 "faithfulness_score": faithfulness,
                 "citation_coverage": citation_cov,
+                "heal_attempts": heal_attempts,
                 "latency_s": round(latency, 2),
             })
 
             status = "[green]PASS[/green]" if passed else "[red]FAIL[/red]"
-            console.print(f"  Result: {status} | Faithfulness: {faithfulness:.2f} | Latency: {latency:.2f}s\n")
+            console.print(f"  Result: {status} | Faithfulness: {faithfulness:.2f} | Heals: {heal_attempts} | Latency: {latency:.2f}s\n")
 
         except Exception as e:
             console.print(f"  [red]Error testing [{q_id}]: {e}[/red]\n")
@@ -97,6 +104,49 @@ def run_evaluation(threshold: float = 0.80):
         "total": total,
         "results": results,
     }
+
+
+def run_engine_health_check():
+    """Run an engine health check via the API's telemetry endpoint."""
+    console.print("[bold cyan]════════════════════════════════════════════════════════════[/bold cyan]")
+    console.print("[bold cyan]       🏥 SELF-HEALING RAG ENGINE — HEALTH CHECK            [/bold cyan]")
+    console.print("[bold cyan]════════════════════════════════════════════════════════════[/bold cyan]\n")
+
+    try:
+        # Get telemetry summary
+        health_resp = requests.get(f"{API_URL}/health", timeout=10).json()
+        telemetry_resp = requests.get(f"{API_URL}/engine/telemetry", timeout=10).json()
+        drift_resp = requests.get(f"{API_URL}/engine/drift", timeout=10).json()
+
+        metrics = telemetry_resp.get("summary", {})
+        health_score = compute_engine_health_score(metrics)
+
+        console.print(f"[bold]Engine Name:        {health_resp.get('engine_name', 'unknown')}[/bold]")
+        console.print(f"[bold]Generation Version: v{health_resp.get('generation_version', '?')}[/bold]")
+        console.print(f"[bold]Health Score:        {health_score:.0%}[/bold]")
+        console.print(f"[bold]Total Queries:      {metrics.get('total_queries', 0)}[/bold]")
+        console.print(f"[bold]Avg Faithfulness:   {metrics.get('avg_faithfulness', 0):.1%}[/bold]")
+        console.print(f"[bold]Hallucination Rate: {metrics.get('hallucination_rate_pct', 0):.1f}%[/bold]")
+        console.print(f"[bold]Guardrail Pass:     {metrics.get('guardrail_pass_rate_pct', 0):.1f}%[/bold]")
+        console.print(f"[bold]Avg Latency:        {metrics.get('avg_latency_ms', 0):.0f}ms[/bold]")
+        console.print(f"[bold]Total Heal Events:  {metrics.get('total_heal_events', 0)}[/bold]")
+        console.print(f"[bold]Drift Detected:     {drift_resp.get('drift_detected', False)}[/bold]")
+
+        if drift_resp.get("drift_detected"):
+            console.print(f"\n[bold red]⚠ DRIFT REPORT:[/bold red]")
+            report = drift_resp.get("drift_report", {})
+            console.print(f"  Failure Type: {report.get('failure_type', '?')}")
+            console.print(f"  Severity: {report.get('severity', '?')}")
+
+        return {
+            "health_score": health_score,
+            "metrics": metrics,
+            "drift_detected": drift_resp.get("drift_detected", False),
+        }
+
+    except Exception as e:
+        console.print(f"[red]Failed to connect to API: {e}[/red]")
+        return None
 
 
 if __name__ == "__main__":

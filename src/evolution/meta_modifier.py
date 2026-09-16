@@ -1,7 +1,8 @@
-"""External RAG Pipeline Inspector, Auditor & Meta-Modifier for s@r@h.
+"""External RAG Configuration Auditor & Modifier.
 
-Inspects external RAG models, architectures, and pipeline configurations,
-detects structural failure risks, and automatically synthesizes optimized RAG recipes & patches.
+Scans external RAG pipeline configurations or code snippets,
+identifies vulnerabilities and optimization gaps, and generates
+upgrade recommendations aligned with the Self-Healing RAG Engine architecture.
 """
 
 from dataclasses import dataclass, field
@@ -75,32 +76,26 @@ class RAGMetaModifier:
         score = max(15, score)
 
         # Generate Upgraded Code Patch
-        generated_patch = f'''# --- s@r@h Auto-Generated Upgraded RAG Pipeline ---
+        generated_patch = f'''# --- Self-Healing RAG Engine — Auto-Generated Upgraded Pipeline ---
 from src.retrieval.hybrid import reciprocal_rank_fusion
 from src.retrieval.reranker import rerank
 from src.guardrails.faithfulness_checker import check_faithfulness
 from src.guardrails.citation_verifier import verify_citations
 from src.optimization.semantic_cache import semantic_cache
-from src.security.sanitizer import security_sanitizer
 
 def upgraded_rag_pipeline(query: str):
-    # 1. Security Audit
-    sec = security_sanitizer.audit_input_query(query)
-    if not sec.is_safe:
-        return {{"answer": "Blocked by Security Guard", "passed": False}}
-
-    # 2. Sub-10ms Semantic Cache Check
-    cached, sim = semantic_cache.lookup(sec.sanitized_text)
+    # 1. Sub-10ms Semantic Cache Check
+    cached, sim = semantic_cache.lookup(query)
     if cached:
         return cached
 
-    # 3. Dual-Path Hybrid Search (Vector + BM25)
+    # 2. Dual-Path Hybrid Search (Vector + BM25)
     # fused = reciprocal_rank_fusion(vector_results, bm25_results)
 
-    # 4. Cross-Encoder Precision Reranking
+    # 3. Cross-Encoder Precision Reranking
     # reranked = rerank(query, fused, top_k=5)
 
-    # 5. Tri-Guardrail Verification & Generation
+    # 4. Tri-Guardrail Verification & Generation
     # Return grounded answer with verified [1], [2] citations!
 '''
 
@@ -109,8 +104,7 @@ def upgraded_rag_pipeline(query: str):
             "reranker": "cross-encoder/ms-marco-MiniLM-L6-v2 (Threshold: 0.30)",
             "guardrails": "NLI DeBERTa (Entailment >= 0.70) + Inline Citation Regex Checker",
             "caching": "Semantic Vector Cache (Cosine Sim >= 0.94)",
-            "memory": "SQLite Episodic Multi-Turn Persistence",
-            "security": "Heuristic Injection Defense + PII Auto-Redactor",
+            "self_healing": "Autonomous query rewrite + threshold tuning + regression evaluation",
         }
 
         return RAGAuditReport(

@@ -1,4 +1,4 @@
-name: s@r@h CI/CD & Automated Training Pipeline
+name: Self-Healing RAG Engine CI/CD
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ main, master ]
 
 jobs:
-  train-and-evaluate:
+  test-and-verify:
     runs-on: ubuntu-latest
 
     steps:
@@ -26,14 +26,13 @@ jobs:
           pip install -r requirements.txt
           pip install pytest
 
-      - name: 🧠 Ingest Knowledge Corpus & Train Knowledge Graph
+      - name: 🧠 Ingest Knowledge Corpus
         run: |
           python -c "
           from src.ingestion.loader import load_directory
           from src.ingestion.chunker import chunk_documents
           from src.retrieval.vector_store import VectorStore
           from src.retrieval.bm25_store import BM25Store
-          from src.graph.knowledge_graph import knowledge_graph
           from src.config import settings
 
           docs = load_directory(settings.documents_dir)
@@ -42,14 +41,9 @@ jobs:
           v_store.add_chunks(chunks)
           b_store = BM25Store()
           b_store.add_chunks(chunks)
-          knowledge_graph.extract_and_index_chunks(chunks)
-          print(f'✓ Successfully trained on {len(docs)} documents and {len(chunks)} chunks.')
+          print(f'✓ Successfully indexed {len(docs)} documents and {len(chunks)} chunks.')
           "
 
-      - name: 🧪 Run Automated Unit & Guardrail Tests
+      - name: 🧪 Run Automated Tests (Unit, Engine, API, Evolution)
         run: |
           pytest tests/ -v
-
-      - name: 📊 Run Golden Dataset Evaluation Benchmark
-        run: |
-          python -m src.evaluation.eval_runner

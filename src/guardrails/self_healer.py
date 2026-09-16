@@ -1,4 +1,7 @@
-"""Self-healing orchestrator.
+"""Self-healing query rewriter and refusal builder.
+
+Provides the core LLM-based query rewrite capability used by
+the engine's RewriteQueryStrategy, plus graceful refusal construction.
 
 When guardrails detect a problem, this module:
 1. Rewrites the query for better retrieval
@@ -16,7 +19,11 @@ console = Console()
 
 
 def rewrite_query(original_query: str) -> str:
-    """Use the LLM to rewrite a query for better retrieval."""
+    """Use the LLM to rewrite a query for better retrieval.
+
+    This is the underlying implementation used by
+    src.engine.repair_strategies.RewriteQueryStrategy.
+    """
     try:
         prompt = QUERY_REWRITE_PROMPT.format(query=original_query)
         rewritten = generate(

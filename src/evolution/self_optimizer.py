@@ -1,9 +1,11 @@
-"""Autonomous Self-Optimizer & Hyperparameter Mutation Engine for s@r@h.
+"""Autonomous Self-Optimizer & Hyperparameter Mutation Engine.
 
 Monitors real-time telemetry drift and dynamically self-tunes:
 - Vector vs BM25 weights in Reciprocal Rank Fusion
 - Cross-Encoder relevance gating thresholds
 - RRF smoothing constants and retrieval depths
+
+Integrates with src.engine as a config-level repair mechanism.
 """
 
 import time
@@ -209,6 +211,36 @@ class SelfOptimizer:
     def reset_defaults(self):
         self.params = DynamicRAGHyperparameters()
         self._save_current_state()
+
+    def get_config_snapshot(self) -> dict:
+        """Return current hyperparameters as a dict for engine integration."""
+        return {
+            "vector_weight": self.params.vector_weight,
+            "bm25_weight": self.params.bm25_weight,
+            "rrf_k": self.params.rrf_k,
+            "relevance_threshold": self.params.relevance_threshold,
+            "top_k_retrieval": self.params.top_k_retrieval,
+            "top_k_rerank": self.params.top_k_rerank,
+            "generation_version": self.params.generation_version,
+        }
+
+    def apply_config(self, config: dict, reason: str = "Engine repair"):
+        """Apply configuration changes from a successful engine repair."""
+        param_map = {
+            "vector_weight": "vector_weight",
+            "bm25_weight": "bm25_weight",
+            "rrf_k": "rrf_k",
+            "relevance_threshold": "relevance_threshold",
+            "top_k_retrieval": "top_k_retrieval",
+            "top_k_rerank": "top_k_rerank",
+        }
+        for config_key, param_attr in param_map.items():
+            if config_key in config:
+                new_val = config[config_key]
+                old_val = getattr(self.params, param_attr)
+                if new_val != old_val:
+                    setattr(self.params, param_attr, new_val)
+                    self.record_mutation(param_attr, old_val, new_val, reason)
 
 
 self_optimizer = SelfOptimizer()

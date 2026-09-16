@@ -48,6 +48,12 @@ class Settings(BaseSettings):
     hhem_model: str = "cross-encoder/nli-deberta-v3-xsmall"
     max_heal_retries: int = 2
 
+    # --- Self-Healing Engine ---
+    latency_sla_ms: float = 10000.0
+    max_repair_attempts: int = 3
+    improvement_threshold: float = 0.02
+    regression_threshold: float = -0.03
+
     # --- Paths ---
     chroma_persist_dir: str = "./data/chroma_db"
     documents_dir: str = "./data/sample_docs"
