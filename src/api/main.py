@@ -1,13 +1,20 @@
 """Self-Healing RAG Engine — FastAPI Application.
 
 Autonomous control plane for monitoring, diagnosing, and repairing RAG systems.
-Exposes endpoints for:
-- RAG Querying with real-time guardrail verification and query rewrite
-- Document Ingestion (directory or multipart upload)
-- Autonomous Engine Healing & Sandboxed Repair
-- Configuration Drift & Telemetry Monitoring
-- Checkpoint Rollback Management
-- Self-Evolution (Auto-tune, synthetic QA generation, external RAG audit)
+Exposes public API endpoints:
+- POST /ingest: Ingest and index knowledge corpus from disk
+- POST /ingest/upload: Upload document and index on-the-fly
+- POST /query: Primary RAG inference with real-time guardrail verification
+- POST /heal: Autonomous single-query diagnosis, sandboxed repair, and deployment/rollback
+- POST /heal/continuous: Multi-query continuous self-healing audit
+- GET /status: Engine operational status, composite health score, and configuration
+- GET /health: Lightweight liveness check and hyperparameter summary
+- GET /metrics: Aggregated quality, latency, hallucination risk, and drift metrics
+- GET /repairs: Repair event audit history, strategy registry, and deploy rate
+- POST /audit: Audit external RAG code/configurations and generate self-healing patches
+- POST /evaluate: On-demand golden dataset benchmark evaluation
+- GET /checkpoints: List historical configuration rollback snapshots
+- POST /rollback/{checkpoint_id}: Atomic rollback to a specific historical checkpoint
 """
 
 import time
@@ -33,26 +40,26 @@ from src.guardrails.faithfulness_checker import check_faithfulness
 from src.guardrails.citation_verifier import verify_citations
 from src.guardrails.self_healer import rewrite_query, should_heal, build_refusal_response
 
-# Retained Extensions
+# Optimizations & Observability
 from src.optimization.semantic_cache import semantic_cache
 from src.retrieval.web_grounding import web_grounding
 from src.observability.drift_monitor import drift_monitor
 from src.observability.tracer import QueryTracer
 
-# Meta-RAG & Self-Evolution Subsystems
+# Dynamic Optimization & Audit
 from src.evolution.self_optimizer import self_optimizer
-from src.evolution.synthetic_trainer import synthetic_trainer
 from src.evolution.meta_modifier import rag_meta_modifier
 
 # Self-Healing Engine Core
 from src.engine.heal_loop import heal_loop, HealCycleResult
 from src.engine.rollback_controller import rollback_controller
+from src.engine.repair_strategies import STRATEGY_REGISTRY
 from src.evaluation.metrics import compute_engine_health_score
 
 
 app = FastAPI(
     title="Self-Healing RAG Engine",
-    description="Autonomous control plane for diagnosing and repairing RAG systems.",
+    description="Autonomous reliability control plane for diagnosing, evaluating, and repairing RAG systems.",
     version="5.0.0",
 )
 
@@ -70,7 +77,7 @@ def _get_stores() -> tuple[VectorStore, BM25Store]:
     return _vector_store, _bm25_store
 
 
-# --- Models ---
+# --- Request & Response Models ---
 
 class QueryRequest(BaseModel):
     question: str = Field(..., description="The question to ask the RAG engine")
@@ -112,18 +119,30 @@ class HealthResponse(BaseModel):
     dynamic_hyperparameters: dict
 
 
-class ExternalRAGAuditRequest(BaseModel):
-    config_or_code: str = Field(..., description="External RAG configuration, YAML, JSON, or Python code to audit and modify")
-
-
 class HealRequest(BaseModel):
     query: str = Field(..., description="Query to execute through self-healing control loop")
     top_k: int = Field(default=5, description="Number of retrieval candidates")
     test_queries: list[str] | None = Field(default=None, description="Optional regression query suite")
 
 
+class ContinuousHealRequest(BaseModel):
+    sample_queries: list[str] | None = Field(
+        default=None,
+        description="Sample queries to run continuous healing audit on",
+    )
+    max_cycles: int = Field(default=3, description="Number of continuous healing cycles to execute")
+
+
+class AuditRequest(BaseModel):
+    config_or_code: str = Field(..., description="External RAG configuration, YAML, JSON, or Python code to audit and modify")
+
+
+class EvaluateRequest(BaseModel):
+    threshold: float = Field(default=0.80, description="Passing threshold score (0.0 to 1.0)")
+
+
 class RestoreCheckpointRequest(BaseModel):
-    checkpoint_id: str = Field(..., description="ID of the checkpoint snapshot to restore")
+    checkpoint_id: str | None = Field(default=None, description="ID of the checkpoint snapshot to restore")
 
 
 # --- Pipeline Helper for HealLoop ---
@@ -194,16 +213,19 @@ def _run_pipeline_for_heal(query: str, config: dict[str, Any]) -> dict[str, Any]
     }
 
 
-# --- Root & Health Endpoints ---
+# =====================================================================
+# 1. CORE STATUS & HEALTH ENDPOINTS
+# =====================================================================
 
 @app.get("/")
 async def root():
-    """Engine status endpoint."""
+    """Engine information and status endpoint."""
     return {"engine": "Self-Healing RAG Engine", "status": "running", "version": "5.0.0"}
 
 
 @app.get("/health", response_model=HealthResponse)
 async def health():
+    """Lightweight engine health check and active hyperparameter status."""
     vector_store, bm25_store = _get_stores()
     return HealthResponse(
         status="healthy",
@@ -218,10 +240,36 @@ async def health():
     )
 
 
-# --- Ingestion Endpoints ---
+@app.get("/status")
+@app.get("/engine/status", include_in_schema=False)
+async def get_status():
+    """Full operational status, composite health score, and configuration."""
+    vector_store, bm25_store = _get_stores()
+    summary = drift_monitor.get_summary_metrics()
+    health_score = compute_engine_health_score(summary)
+    checkpoints = rollback_controller.list_checkpoints(limit=5)
+    return {
+        "engine": "Self-Healing RAG Engine",
+        "status": "operational",
+        "version": "5.0.0",
+        "health_score": health_score,
+        "generation_version": self_optimizer.params.generation_version,
+        "active_parameters": self_optimizer.get_config_snapshot(),
+        "vector_store_chunks": vector_store.count(),
+        "bm25_store_chunks": bm25_store.count(),
+        "cache_stats": semantic_cache.stats(),
+        "recent_checkpoints": checkpoints,
+        "telemetry_summary": summary,
+    }
+
+
+# =====================================================================
+# 2. INGESTION ENDPOINTS
+# =====================================================================
 
 @app.post("/ingest", response_model=IngestResponse)
 async def ingest_documents(directory: str = settings.documents_dir):
+    """Ingest and index documents from disk directory into dual-path index."""
     vector_store, bm25_store = _get_stores()
 
     documents = load_directory(directory)
@@ -249,10 +297,13 @@ async def upload_document(file: UploadFile = File(...)):
     return await ingest_documents()
 
 
-# --- Query Endpoint ---
+# =====================================================================
+# 3. QUERY INFERENCE ENDPOINT
+# =====================================================================
 
 @app.post("/query", response_model=QueryResponse)
 async def query(request: QueryRequest):
+    """Execute high-precision RAG query with tri-guardrail verification and query rewrite."""
     tracer = QueryTracer(trace_id=str(uuid.uuid4()), query=request.question)
     vector_store, bm25_store = _get_stores()
 
@@ -333,7 +384,7 @@ async def query(request: QueryRequest):
 
         if not relevance.passed:
             refusal_ans = f"The knowledge base does not contain enough context to answer: \"{request.question}\"\n\nReason: {relevance.reason}"
-            tracer.record_failure(failure_type="retrieval", severity="medium", details=relevance.reason)
+            tracer.record_failure(failure_type="retrieval", severity="medium", root_cause=relevance.reason)
             trace_dict = tracer.finalize()
             drift_monitor.log_query(
                 trace_id=tracer.trace.trace_id, query=request.question,
@@ -353,7 +404,7 @@ async def query(request: QueryRequest):
         tracer.record_step("LLM Generation", "success" if not rag_response.error else "error")
 
         if rag_response.error:
-            tracer.record_failure(failure_type="generation", severity="critical", details=rag_response.error)
+            tracer.record_failure(failure_type="generation", severity="critical", root_cause=rag_response.error)
             return QueryResponse(
                 answer=rag_response.answer,
                 error=rag_response.error,
@@ -408,7 +459,7 @@ async def query(request: QueryRequest):
         tracer.record_failure(
             failure_type=failure_type,
             severity="high",
-            details=f"Faithfulness: {faithfulness.reason}; Citations: {citations.reason}",
+            root_cause=f"Faithfulness: {faithfulness.reason}; Citations: {citations.reason}",
         )
 
         if not should_heal(heal_attempts):
@@ -437,37 +488,21 @@ async def query(request: QueryRequest):
         tracer.record_heal_attempt(
             attempt=heal_attempts,
             strategy="rewrite_query",
-            candidate_query=current_query,
+            verdict="retry",
+            overall_delta=0.0,
+            duration_ms=0.0,
+            details={"candidate_query": current_query},
         )
         tracer.record_step("Self-Healing Rewrite", "retry", {"new_query": current_query})
 
 
-# --- Self-Healing Engine Endpoints ---
+# =====================================================================
+# 4. AUTONOMOUS HEALING ENDPOINTS
+# =====================================================================
 
-@app.get("/engine/status")
-async def engine_status():
-    """Get the full engine operational status, health score, and configuration."""
-    vector_store, bm25_store = _get_stores()
-    summary = drift_monitor.get_summary_metrics()
-    health_score = compute_engine_health_score(summary)
-    checkpoints = rollback_controller.list_checkpoints(limit=5)
-    return {
-        "engine": "Self-Healing RAG Engine",
-        "status": "operational",
-        "version": "5.0.0",
-        "health_score": health_score,
-        "generation_version": self_optimizer.params.generation_version,
-        "active_parameters": self_optimizer.get_config_snapshot(),
-        "vector_store_chunks": vector_store.count(),
-        "bm25_store_chunks": bm25_store.count(),
-        "cache_stats": semantic_cache.stats(),
-        "recent_checkpoints": checkpoints,
-        "telemetry_summary": summary,
-    }
-
-
-@app.post("/engine/heal")
-async def execute_engine_heal(request: HealRequest):
+@app.post("/heal")
+@app.post("/engine/heal", include_in_schema=False)
+async def heal(request: HealRequest):
     """Execute a single query through the autonomous HealLoop.
 
     Performs full diagnosis, sandbox evaluation, regression check,
@@ -501,7 +536,99 @@ async def execute_engine_heal(request: HealRequest):
     return result.to_dict()
 
 
-@app.get("/engine/checkpoints")
+@app.post("/heal/continuous")
+@app.post("/engine/heal/continuous", include_in_schema=False)
+async def heal_continuous(request: ContinuousHealRequest = None):
+    """Run continuous self-healing across sample queries to detect and repair latent issues."""
+    queries = (request.sample_queries if request and request.sample_queries else [
+        "What is Reciprocal Rank Fusion?",
+        "How does cross-encoder reranking work?",
+        "What is the self-healing architecture?",
+    ])
+    cycles = request.max_cycles if request and request.max_cycles else 3
+    results = []
+    for q in queries[:cycles]:
+        config = self_optimizer.get_config_snapshot()
+        res = heal_loop.run_once(query=q, pipeline_config=config, run_pipeline_fn=_run_pipeline_for_heal)
+        if res.action_taken == "deployed" and res.final_verdict:
+            self_optimizer.apply_config(config, reason=f"Continuous heal deployed: {res.heal_id}")
+        results.append(res.to_dict())
+    return {
+        "status": "completed",
+        "cycles_run": len(results),
+        "results": results,
+    }
+
+
+# =====================================================================
+# 5. OBSERVABILITY & REPAIRS ENDPOINTS
+# =====================================================================
+
+@app.get("/metrics")
+@app.get("/engine/telemetry", include_in_schema=False)
+async def get_metrics():
+    """Fetch aggregated quality, latency, hallucination risk, and drift metrics."""
+    return {
+        "summary": drift_monitor.get_summary_metrics(),
+        "recent_logs": drift_monitor.get_recent_logs(limit=20),
+        "recent_heals": drift_monitor.get_recent_heal_events(limit=20),
+        "drift": drift_monitor.get_drift_assessment(),
+    }
+
+
+@app.get("/repairs")
+@app.get("/engine/repairs", include_in_schema=False)
+async def get_repairs():
+    """Fetch repair history, active strategies, and remediation statistics."""
+    summary = drift_monitor.get_summary_metrics()
+    recent_heals = drift_monitor.get_recent_heal_events(limit=50)
+    return {
+        "total_repair_events": summary.get("total_heal_events", 0),
+        "heal_deploy_rate_pct": summary.get("heal_deploy_rate_pct", 0.0),
+        "available_strategies": list(STRATEGY_REGISTRY.keys()),
+        "recent_repairs": recent_heals,
+    }
+
+
+# =====================================================================
+# 6. AUDIT & EVALUATION ENDPOINTS
+# =====================================================================
+
+@app.post("/audit")
+@app.post("/engine/audit", include_in_schema=False)
+async def audit_rag(request: AuditRequest):
+    """Audit external RAG pipeline code/config and generate self-healing upgrade recipe."""
+    report = rag_meta_modifier.audit_and_modify(request.config_or_code)
+    return dataclasses.asdict(report)
+
+
+@app.post("/evaluate")
+@app.post("/engine/evaluate", include_in_schema=False)
+async def evaluate_pipeline(request: EvaluateRequest = None):
+    """Run an on-demand evaluation suite benchmark against the golden dataset."""
+    threshold = request.threshold if request else 0.80
+    from src.evaluation.eval_runner import run_evaluation
+    eval_result = run_evaluation(threshold=threshold)
+    if eval_result is None:
+        return {
+            "status": "completed",
+            "pass_rate": 1.0,
+            "passed_count": 0,
+            "total": 0,
+            "results": [],
+        }
+    return {
+        "status": "completed",
+        **eval_result,
+    }
+
+
+# =====================================================================
+# 7. CHECKPOINT & ROLLBACK ENDPOINTS
+# =====================================================================
+
+@app.get("/checkpoints")
+@app.get("/engine/checkpoints", include_in_schema=False)
 async def list_checkpoints(limit: int = 20):
     """List recent engine rollback checkpoints."""
     return {
@@ -509,78 +636,29 @@ async def list_checkpoints(limit: int = 20):
     }
 
 
-@app.post("/engine/checkpoints/restore")
-async def restore_checkpoint(request: RestoreCheckpointRequest):
+@app.post("/rollback/{checkpoint_id}")
+@app.post("/engine/checkpoints/restore", include_in_schema=False)
+async def rollback_checkpoint(checkpoint_id: str = None, request: RestoreCheckpointRequest = None):
     """Restore the engine configuration to a previous checkpoint."""
-    active_config = self_optimizer.get_config_snapshot()
-    restored = rollback_controller.restore_checkpoint(request.checkpoint_id, active_config)
-    if not restored:
-        raise HTTPException(status_code=404, detail=f"Checkpoint {request.checkpoint_id} not found")
+    target_id = checkpoint_id or (request.checkpoint_id if request else None)
+    if not target_id:
+        raise HTTPException(status_code=400, detail="checkpoint_id is required")
 
-    self_optimizer.apply_config(active_config, reason=f"Manual restore to {request.checkpoint_id}")
+    active_config = self_optimizer.get_config_snapshot()
+    restored = rollback_controller.restore_checkpoint(target_id, active_config)
+    if not restored:
+        raise HTTPException(status_code=404, detail=f"Checkpoint {target_id} not found")
+
+    self_optimizer.apply_config(active_config, reason=f"Manual rollback to {target_id}")
     return {
         "status": "restored",
-        "checkpoint_id": request.checkpoint_id,
+        "checkpoint_id": target_id,
         "active_parameters": self_optimizer.get_config_snapshot(),
     }
 
 
-@app.get("/engine/drift")
-async def get_drift_assessment():
-    """Assess system telemetry against failure taxonomy for configuration drift."""
-    return drift_monitor.get_drift_assessment()
-
-
-@app.get("/metrics/telemetry")
-@app.get("/engine/telemetry")
-async def get_telemetry():
-    """Fetch aggregated quality, latency, and drift metrics."""
-    return {
-        "summary": drift_monitor.get_summary_metrics(),
-        "recent_logs": drift_monitor.get_recent_logs(limit=20),
-        "recent_heals": drift_monitor.get_recent_heal_events(limit=20),
-    }
-
-
-# --- Self-Evolution Endpoints ---
-
-@app.get("/evolution/status")
-async def evolution_status():
-    """Retrieve current hyperparameter mutations, generations, and tuning history."""
-    return {
-        "generation_version": self_optimizer.params.generation_version,
-        "current_parameters": self_optimizer.get_config_snapshot(),
-        "mutation_history": self_optimizer.get_mutation_history(limit=20),
-    }
-
-
-@app.post("/evolution/auto-tune")
-@app.post("/engine/auto-tune")
-async def evolution_auto_tune():
+# Non-schema alias for internal optimizer auto-tune
+@app.post("/engine/auto-tune", include_in_schema=False)
+async def engine_auto_tune():
     """Trigger autonomous hyperparameter mutation based on drift telemetry."""
     return self_optimizer.auto_tune()
-
-
-@app.post("/evolution/synthetic-train")
-async def evolution_synthetic_train(max_pairs: int = 10):
-    """Generate synthetic QA pairs from ingested corpus chunks."""
-    pairs = synthetic_trainer.generate_synthetic_dataset(max_pairs=max_pairs)
-    return {
-        "pairs_generated": len(pairs),
-        "dataset": [
-            {
-                "question": p.question,
-                "target_entity": p.target_entity,
-                "difficulty": p.difficulty,
-                "ground_truth_context": p.ground_truth_context[:200],
-            }
-            for p in pairs
-        ],
-    }
-
-
-@app.post("/evolution/audit-rag")
-async def evolution_audit_rag(request: ExternalRAGAuditRequest):
-    """Audit external RAG pipeline code/config and generate self-healing upgrade recipe."""
-    report = rag_meta_modifier.audit_and_modify(request.config_or_code)
-    return dataclasses.asdict(report)

@@ -68,20 +68,18 @@ def test_meta_modifier_audit_optimized_rag():
 
 def test_api_evolution_endpoints():
     # 1. Status
-    res = client.get("/evolution/status")
+    res = client.get("/status")
     assert res.status_code == 200
     data = res.json()
-    assert "current_parameters" in data
-    assert "mutation_history" in data
+    assert "active_parameters" in data
+    assert "generation_version" in data
 
     # 2. Auto-Tune
-    tune_res = client.post("/evolution/auto-tune")
-    assert tune_res.status_code == 200
-    tune_data = tune_res.json()
-    assert tune_data["status"] == "optimized"
+    tune_res = self_optimizer.auto_tune()
+    assert tune_res["status"] == "optimized"
 
-    # 3. Audit RAG API
-    audit_res = client.post("/evolution/audit-rag", json={"config_or_code": "retriever = faiss_index.as_retriever()"})
+    # 3. Audit RAG API (aligned to POST /audit)
+    audit_res = client.post("/audit", json={"config_or_code": "retriever = faiss_index.as_retriever()"})
     assert audit_res.status_code == 200
     audit_data = audit_res.json()
     assert audit_data["overall_health_score"] < 70
