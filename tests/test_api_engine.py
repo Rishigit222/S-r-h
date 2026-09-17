@@ -100,3 +100,53 @@ def test_heal_endpoint():
     assert "query" in heal_data
     assert "action_taken" in heal_data
     assert "total_duration_ms" in heal_data
+
+
+def test_model_manager_caching_and_lifecycle():
+    from src.models.manager import model_manager
+    from src.config import settings
+    model = model_manager.get(settings.embedding_model)
+    assert model is not None
+    assert model_manager.is_loaded(settings.embedding_model) is True
+    status = model_manager.status()
+    assert settings.embedding_model in status["loaded_models"]
+    assert settings.embedding_model in status["load_times"]
+
+
+def test_embedder_generation_and_logging():
+    from src.ingestion.embedder import embed_texts, embed_query
+    # Test batch embedding
+    embs = embed_texts(["Test sentence for embedding verification.", "Second test sentence."])
+    assert len(embs) == 2
+    assert embs.shape[1] == 384
+    # Test empty batch
+    empty_embs = embed_texts([])
+    assert len(empty_embs) == 0
+    # Test query embedding
+    q_emb = embed_query("What is self-healing RAG?")
+    assert len(q_emb) == 384
+
+
+def test_ingest_upload_endpoint():
+    from pathlib import Path
+    from src.config import settings
+    test_content = (
+        b"# Render Upload Test Verification\n\n"
+        b"Verifying dynamic upload and embedding on Render Free. "
+        b"This content must be long enough to exceed one hundred characters for document loaders."
+    )
+    uploaded_path = Path(settings.documents_dir) / "test_upload_doc.md"
+    try:
+        files = {"file": ("test_upload_doc.md", test_content, "text/markdown")}
+        resp = client.post("/ingest/upload", files=files)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "documents_loaded" in data
+        assert data["documents_loaded"] > 0
+        assert data["chunks_created"] > 0
+        assert data["chunks_indexed"] > 0
+    finally:
+        if uploaded_path.exists():
+            uploaded_path.unlink()
+
+

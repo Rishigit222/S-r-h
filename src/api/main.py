@@ -20,7 +20,9 @@ Exposes public API endpoints:
 import time
 import uuid
 import shutil
+import logging
 import dataclasses
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 from fastapi import FastAPI, HTTPException, UploadFile, File
@@ -55,13 +57,30 @@ from src.engine.heal_loop import heal_loop, HealCycleResult
 from src.engine.rollback_controller import rollback_controller
 from src.engine.repair_strategies import STRATEGY_REGISTRY
 from src.evaluation.metrics import compute_engine_health_score
+from src.models.manager import model_manager
+
+logger = logging.getLogger("src.api.main")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager to warm up models at startup and prevent request timeouts."""
+    logger.info("Application startup: Preloading embedding model '%s'...", settings.embedding_model)
+    try:
+        model_manager.get(settings.embedding_model)
+        logger.info("Application startup: Embedding model preloaded successfully.")
+    except Exception as e:
+        logger.error("Application startup: Failed to preload embedding model: %s", e, exc_info=True)
+    yield
 
 
 app = FastAPI(
     title="Self-Healing RAG Engine",
     description="Autonomous reliability control plane for diagnosing, evaluating, and repairing RAG systems.",
     version="5.0.0",
+    lifespan=lifespan,
 )
+
 
 # Stores
 _vector_store: VectorStore | None = None

@@ -7,12 +7,14 @@ This prevents OOM on machines with 8-16GB RAM.
 
 import time
 import gc
+import logging
 from typing import Any
 from collections import OrderedDict
 
 from rich.console import Console
 
 console = Console()
+logger = logging.getLogger("src.models.manager")
 
 
 class ModelManager:
@@ -38,28 +40,37 @@ class ModelManager:
         """Evict the least-recently-used model if cache is full."""
         while len(self._cache) >= self._max_models:
             evicted_name, evicted_model = self._cache.popitem(last=False)
+            logger.info("Evicting model from cache: %s", evicted_name)
             console.print(f"[yellow]Evicting model: {evicted_name}[/yellow]")
             del evicted_model
             gc.collect()
 
     def _load_model(self, model_name: str) -> Any:
         """Load a model by name, routing to the appropriate loader."""
+        logger.info("Model initialization started: %s", model_name)
         console.print(f"[cyan]Loading model: {model_name}...[/cyan]")
         start = time.time()
 
-        if "all-MiniLM" in model_name or "embedding" in model_name.lower():
-            model = self._load_sentence_transformer(model_name)
-        elif "cross-encoder" in model_name or "ms-marco" in model_name:
-            model = self._load_cross_encoder(model_name)
-        elif "hallucination" in model_name or "hhem" in model_name.lower():
-            model = self._load_cross_encoder(model_name)
-        else:
-            model = self._load_sentence_transformer(model_name)
+        try:
+            if "all-MiniLM" in model_name or "embedding" in model_name.lower():
+                model = self._load_sentence_transformer(model_name)
+            elif "cross-encoder" in model_name or "ms-marco" in model_name:
+                model = self._load_cross_encoder(model_name)
+            elif "hallucination" in model_name or "hhem" in model_name.lower():
+                model = self._load_cross_encoder(model_name)
+            else:
+                model = self._load_sentence_transformer(model_name)
 
-        elapsed = time.time() - start
-        self._load_times[model_name] = elapsed
-        console.print(f"[green][OK] Loaded {model_name} in {elapsed:.1f}s[/green]")
-        return model
+            elapsed = time.time() - start
+            self._load_times[model_name] = elapsed
+            logger.info("Model initialization completed: %s in %.2fs", model_name, elapsed)
+            console.print(f"[green][OK] Loaded {model_name} in {elapsed:.1f}s[/green]")
+            return model
+        except Exception as e:
+            elapsed = time.time() - start
+            logger.error("Model initialization failed for %s after %.2fs: %s", model_name, elapsed, e, exc_info=True)
+            console.print(f"[red][ERROR] Failed to load model {model_name} after {elapsed:.1f}s: {e}[/red]")
+            raise
 
     def _load_sentence_transformer(self, model_name: str) -> Any:
         from sentence_transformers import SentenceTransformer
