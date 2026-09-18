@@ -8,6 +8,7 @@ This prevents OOM on machines with 8-16GB RAM.
 import time
 import gc
 import logging
+import threading
 from typing import Any
 from collections import OrderedDict
 
@@ -18,32 +19,101 @@ logger = logging.getLogger("src.models.manager")
 
 
 class ModelManager:
-    """Manages ML model lifecycle with lazy loading and LRU eviction."""
+    """Manages ML model lifecycle with lazy loading, background warmup, and LRU eviction."""
 
     def __init__(self, max_models: int = 2):
         self._cache: OrderedDict[str, Any] = OrderedDict()
         self._max_models = max_models
         self._load_times: dict[str, float] = {}
+        self._lock = threading.Lock()
+        self._model_locks: dict[str, threading.Lock] = {}
+        self._loading_models: set[str] = set()
+        self._load_errors: dict[str, Exception] = {}
 
-    def get(self, model_name: str) -> Any:
-        """Get a model, loading it if not cached."""
-        if model_name in self._cache:
-            self._cache.move_to_end(model_name)
-            return self._cache[model_name]
+    def is_loading(self, model_name: str) -> bool:
+        """Check if a model is currently being loaded in a background thread."""
+        with self._lock:
+            return model_name in self._loading_models
 
-        self._evict_if_needed()
-        model = self._load_model(model_name)
-        self._cache[model_name] = model
-        return model
+    def warmup(self, model_name: str) -> None:
+        """Trigger background model warmup safely."""
+        logger.info("Background model warmup started: %s", model_name)
+        start = time.time()
+        try:
+            self.get(model_name)
+            elapsed = time.time() - start
+            logger.info("Background model warmup completed: %s in %.2fs", model_name, elapsed)
+        except Exception as e:
+            elapsed = time.time() - start
+            logger.error("Background model warmup failed for %s after %.2fs: %s", model_name, elapsed, e, exc_info=True)
+
+    def get(self, model_name: str, timeout: float = 60.0) -> Any:
+        """Get a model, loading it if not cached. Thread-safe with single-flight loading."""
+        # 1. Fast path: check cache under master lock
+        with self._lock:
+            if model_name in self._cache:
+                self._cache.move_to_end(model_name)
+                return self._cache[model_name]
+
+            if model_name in self._load_errors:
+                err = self._load_errors[model_name]
+                logger.error("Model '%s' previously failed to load: %s", model_name, err)
+                raise RuntimeError(f"Model '{model_name}' failed to load: {err}") from err
+
+            if model_name not in self._model_locks:
+                self._model_locks[model_name] = threading.Lock()
+            model_lock = self._model_locks[model_name]
+            already_loading = model_name in self._loading_models
+
+        if already_loading:
+            logger.info("Request waiting for model '%s' initialization/warmup to complete...", model_name)
+
+        # 2. Acquire per-model lock so only one thread loads the model
+        acquired = model_lock.acquire(timeout=timeout)
+        if not acquired:
+            logger.error("Timed out after %.1fs waiting for model '%s' initialization/warmup", timeout, model_name)
+            raise TimeoutError(f"Timed out after {timeout}s waiting for model '{model_name}' initialization")
+
+        try:
+            with self._lock:
+                # Double-check cache in case the loading thread just finished
+                if model_name in self._cache:
+                    self._cache.move_to_end(model_name)
+                    return self._cache[model_name]
+
+                if model_name in self._load_errors:
+                    err = self._load_errors[model_name]
+                    logger.error("Model '%s' failed to load: %s", model_name, err)
+                    raise RuntimeError(f"Model '{model_name}' failed to load: {err}") from err
+
+                self._loading_models.add(model_name)
+
+            try:
+                with self._lock:
+                    self._evict_if_needed()
+                model = self._load_model(model_name)
+                with self._lock:
+                    self._cache[model_name] = model
+                    self._loading_models.discard(model_name)
+                    self._load_errors.pop(model_name, None)
+                return model
+            except Exception as e:
+                with self._lock:
+                    self._loading_models.discard(model_name)
+                    self._load_errors[model_name] = e
+                raise
+        finally:
+            model_lock.release()
 
     def _evict_if_needed(self) -> None:
-        """Evict the least-recently-used model if cache is full."""
+        """Evict the least-recently-used model if cache is full (called with master lock held)."""
         while len(self._cache) >= self._max_models:
             evicted_name, evicted_model = self._cache.popitem(last=False)
             logger.info("Evicting model from cache: %s", evicted_name)
             console.print(f"[yellow]Evicting model: {evicted_name}[/yellow]")
             del evicted_model
             gc.collect()
+
 
     def _load_model(self, model_name: str) -> Any:
         """Load a model by name, routing to the appropriate loader."""

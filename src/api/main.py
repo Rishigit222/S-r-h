@@ -20,6 +20,7 @@ Exposes public API endpoints:
 import time
 import uuid
 import shutil
+import asyncio
 import logging
 import dataclasses
 from contextlib import asynccontextmanager
@@ -64,14 +65,20 @@ logger = logging.getLogger("src.api.main")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifespan context manager to warm up models at startup and prevent request timeouts."""
-    logger.info("Application startup: Preloading embedding model '%s'...", settings.embedding_model)
+    """Lifespan context manager that immediately yields for fast port binding and warms up model in background."""
+    logger.info(
+        "Application startup: scheduling non-blocking background model warmup for '%s'...",
+        settings.embedding_model,
+    )
+    # Schedule background warmup in a worker thread so synchronous PyTorch model loading
+    # does NOT block Uvicorn from immediately opening and binding to 0.0.0.0:$PORT
+    warmup_task = asyncio.create_task(asyncio.to_thread(model_manager.warmup, settings.embedding_model))
     try:
-        model_manager.get(settings.embedding_model)
-        logger.info("Application startup: Embedding model preloaded successfully.")
-    except Exception as e:
-        logger.error("Application startup: Failed to preload embedding model: %s", e, exc_info=True)
-    yield
+        yield
+    finally:
+        if not warmup_task.done():
+            warmup_task.cancel()
+
 
 
 app = FastAPI(
@@ -296,8 +303,12 @@ async def ingest_documents(directory: str = settings.documents_dir):
         raise HTTPException(status_code=400, detail=f"No documents found in {directory}")
 
     chunks = chunk_documents(documents, settings.chunk_size, settings.chunk_overlap)
-    vector_store.add_chunks(chunks)
-    bm25_store.add_chunks(chunks)
+    try:
+        vector_store.add_chunks(chunks)
+        bm25_store.add_chunks(chunks)
+    except Exception as e:
+        logger.error("Failed to index chunks during ingestion: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Ingestion failed during indexing: {str(e)}")
 
     return IngestResponse(
         documents_loaded=len(documents),
@@ -310,10 +321,15 @@ async def ingest_documents(directory: str = settings.documents_dir):
 async def upload_document(file: UploadFile = File(...)):
     """Upload custom document to knowledge corpus and index on the fly."""
     save_path = Path(settings.documents_dir) / file.filename
-    with open(save_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    try:
+        with open(save_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    except Exception as e:
+        logger.error("Failed to save uploaded file: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to save uploaded file: {str(e)}")
 
     return await ingest_documents()
+
 
 
 # =====================================================================

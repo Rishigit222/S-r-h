@@ -150,3 +150,100 @@ def test_ingest_upload_endpoint():
             uploaded_path.unlink()
 
 
+@pytest.mark.asyncio
+async def test_startup_lifespan_is_non_blocking():
+    """Verify that lifespan __aenter__ yields in milliseconds without blocking on model loading."""
+    import time
+    from src.api.main import lifespan
+    start = time.perf_counter()
+    async with lifespan(app):
+        elapsed = time.perf_counter() - start
+        # Startup must yield in less than 500ms to guarantee Render port detection
+        assert elapsed < 0.5, f"Lifespan took {elapsed:.3f}s; must be < 0.5s for Render port detection"
+
+
+def test_concurrent_model_requests_single_flight():
+    """Verify that concurrent requests for the same model only load once without race conditions."""
+    import threading
+    from src.models.manager import ModelManager
+    mgr = ModelManager(max_models=2)
+    load_count = 0
+    lock = threading.Lock()
+
+    def mock_load(model_name):
+        nonlocal load_count
+        import time
+        time.sleep(0.05)
+        with lock:
+            load_count += 1
+        return f"mock_model_{model_name}"
+
+    mgr._load_model = mock_load
+    results = [None] * 5
+
+    def worker(idx):
+        results[idx] = mgr.get("test-embedder")
+
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(5)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert load_count == 1, f"Expected exactly 1 model load, got {load_count}"
+    assert all(r == "mock_model_test-embedder" for r in results)
+
+
+def test_request_waits_during_warmup():
+    """Verify that when a model is being warmed up, another thread waits and receives the warm model."""
+    import threading
+    import time
+    from src.models.manager import ModelManager
+    mgr = ModelManager(max_models=2)
+
+    def slow_load(model_name):
+        time.sleep(0.1)
+        return "slow_loaded_model"
+
+    mgr._load_model = slow_load
+
+    # Start warmup in background
+    warmup_thread = threading.Thread(target=mgr.warmup, args=("slow-model",))
+    warmup_thread.start()
+
+    time.sleep(0.02)  # Give warmup time to acquire lock and begin
+    assert mgr.is_loading("slow-model") is True
+
+    # Request arrives while warmup is in progress
+    waiter_result = []
+    def waiter():
+        waiter_result.append(mgr.get("slow-model", timeout=2.0))
+
+    req_thread = threading.Thread(target=waiter)
+    req_thread.start()
+    req_thread.join()
+    warmup_thread.join()
+
+    assert len(waiter_result) == 1
+    assert waiter_result[0] == "slow_loaded_model"
+
+
+def test_model_loading_failure_does_not_hang():
+    """Verify that if model loading fails, callers receive a RuntimeError immediately rather than hanging."""
+    from src.models.manager import ModelManager
+    mgr = ModelManager(max_models=2)
+
+    def failing_load(model_name):
+        raise ValueError("Corrupt weights file simulated")
+
+    mgr._load_model = failing_load
+
+    with pytest.raises(ValueError, match="Corrupt weights file simulated"):
+        mgr.get("failing-model")
+
+    # Subsequent call immediately gets cached RuntimeError without hanging
+    with pytest.raises(RuntimeError, match="failed to load"):
+        mgr.get("failing-model")
+
+
+
