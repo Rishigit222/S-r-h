@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Self-Healing RAG Engine — Reliability Control Plane</title>
+    <meta name="description" content="Autonomous AI Infrastructure Engine for Production Retrieval-Augmented Generation with real-time guardrails and self-healing control plane.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="bg-glow-container">
+        <div class="bg-glow orb-1"></div>
+        <div class="bg-glow orb-2"></div>
+        <div class="bg-glow orb-3"></div>
+    </div>
+
+    <!-- Top Navigation Header -->
+    <header class="app-header">
+        <div class="header-container">
+            <div class="brand">
+                <div class="logo-icon">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <div class="brand-text">
+                    <span class="brand-title">Self-Healing RAG</span>
+                    <span class="brand-subtitle">Reliability Control Plane</span>
+                </div>
+            </div>
+
+            <!-- Header Status Metrics -->
+            <div class="header-metrics">
+                <div class="metric-badge status-badge" id="badge-status">
+                    <span class="pulse-dot green"></span>
+                    <span id="text-status">Operational</span>
+                </div>
+                <div class="metric-badge">
+                    <i class="fa-solid fa-heart-pulse icon-health"></i>
+                    <span>Health: </span>
+                    <strong id="text-health-score">--%</strong>
+                </div>
+                <div class="metric-badge">
+                    <i class="fa-solid fa-microchip icon-provider"></i>
+                    <span id="text-provider">LLM: Ollama</span>
+                </div>
+                <div class="metric-badge">
+                    <i class="fa-solid fa-database icon-docs"></i>
+                    <span>Chunks: </span>
+                    <strong id="text-chunks-count">0</strong>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace Area -->
+    <div class="main-container">
+        <!-- Sidebar / Navigation Tabs -->
+        <aside class="sidebar">
+            <nav class="nav-menu">
+                <button class="nav-item active" data-tab="tab-query" id="btn-tab-query">
+                    <i class="fa-solid fa-message"></i>
+                    <span>Inference & Query</span>
+                </button>
+                <button class="nav-item" data-tab="tab-healer" id="btn-tab-healer">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    <span>Heal Loop Control</span>
+                </button>
+                <button class="nav-item" data-tab="tab-ingest" id="btn-tab-ingest">
+                    <i class="fa-solid fa-file-arrow-up"></i>
+                    <span>Corpus Ingestion</span>
+                </button>
+                <button class="nav-item" data-tab="tab-telemetry" id="btn-tab-telemetry">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>Telemetry & Health</span>
+                </button>
+                <button class="nav-item" data-tab="tab-checkpoints" id="btn-tab-checkpoints">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <span>Rollback Snapshots</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="hyperparam-card">
+                    <div class="card-title"><i class="fa-solid fa-sliders"></i> Active Parameters</div>
+                    <div class="hyperparam-grid" id="hyperparam-snapshot">
+                        <div class="hp-item"><span>Vector Wt:</span> <strong id="hp-vector-weight">0.60</strong></div>
+                        <div class="hp-item"><span>BM25 Wt:</span> <strong id="hp-bm25-weight">0.40</strong></div>
+                        <div class="hp-item"><span>Rel Thresh:</span> <strong id="hp-rel-thresh">0.35</strong></div>
+                        <div class="hp-item"><span>RRF K:</span> <strong id="hp-rrf-k">60</strong></div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Content Area -->
+        <main class="content-area">
+            
+            <!-- TAB 1: INFERENCE & QUERY -->
+            <section class="tab-pane active" id="tab-query">
+                <div class="pane-header">
+                    <h2><i class="fa-solid fa-comments"></i> RAG Inference Engine</h2>
+                    <p>Dual-path hybrid search with Reciprocal Rank Fusion, Cross-Encoder reranking, & tri-guardrail verification.</p>
+                </div>
+
+                <div class="query-layout">
+                    <!-- Left: Query Input Panel -->
+                    <div class="glass-card query-input-card">
+                        <form id="form-rag-query">
+                            <div class="form-group">
+                                <label for="input-query-text"><i class="fa-solid fa-magnifying-glass"></i> Ask the Engine</label>
+                                <textarea id="input-query-text" rows="4" placeholder="Enter your prompt or question here..." required></textarea>
+                            </div>
+
+                            <div class="query-options">
+                                <div class="option-item">
+                                    <label for="select-top-k">Retrieval Depth (Top K):</label>
+                                    <select id="select-top-k">
+                                        <option value="3">3 Chunks</option>
+                                        <option value="5" selected>5 Chunks</option>
+                                        <option value="10">10 Chunks</option>
+                                    </select>
+                                </div>
+                                <div class="option-item checkbox-item">
+                                    <input type="checkbox" id="check-web-fallback" checked>
+                                    <label for="check-web-fallback">Enable Web Search Fallback</label>
+                                </div>
+                            </div>
+
+                            <div class="action-bar">
+                                <button type="submit" class="btn btn-primary" id="btn-submit-query">
+                                    <i class="fa-solid fa-paper-plane"></i> Submit Query
+                                </button>
+                            </div>
+                        </form>
+
+                        <div class="sample-queries">
+                            <span class="samples-title"><i class="fa-solid fa-lightbulb"></i> Quick Sample Queries:</span>
+                            <div class="sample-chips">
+                                <button class="chip" onclick="fillQuery('What is the Self-Healing RAG Engine architecture?')">Architecture</button>
+                                <button class="chip" onclick="fillQuery('How does Reciprocal Rank Fusion (RRF) work?')">RRF Fusion</button>
+                                <button class="chip" onclick="fillQuery('List all 7 repair strategies in the control plane.')">Repair Strategies</button>
+                                <button class="chip" onclick="fillQuery('Explain the NLI DeBERTa Faithfulness gate.')">Faithfulness Gate</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Response Display Panel -->
+                    <div class="glass-card query-result-card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-robot"></i> Generation Output</h3>
+                            <div class="response-status-pills" id="response-status-pills">
+                                <span class="pill idle"><i class="fa-solid fa-circle-notch fa-spin"></i> Ready</span>
+                            </div>
+                        </div>
+
+                        <!-- Placeholder before query execution -->
+                        <div class="result-placeholder" id="result-placeholder">
+                            <i class="fa-solid fa-compass-drafting placeholder-icon"></i>
+                            <p>Submit a query above to see real-time generation, confidence scoring, guardrails, and citation links.</p>
+                        </div>
+
+                        <!-- Loading State -->
+                        <div class="loading-state hidden" id="query-loading">
+                            <div class="spinner"></div>
+                            <p>Executing dual-path retrieval, cross-encoding & guardrail audit...</p>
+                        </div>
+
+                        <!-- Active Result View -->
+                        <div class="result-content hidden" id="result-content">
+                            <!-- Answer Box -->
+                            <div class="answer-box">
+                                <div class="answer-title"><i class="fa-solid fa-align-left"></i> Answer:</div>
+                                <div class="answer-text" id="answer-text"></div>
+                            </div>
+
+                            <!-- Tri-Guardrail Cards -->
+                            <div class="guardrails-row">
+                                <div class="guard-card" id="guard-relevance">
+                                    <div class="guard-header">
+                                        <i class="fa-solid fa-crosshairs"></i> Relevance
+                                    </div>
+                                    <div class="guard-value" id="val-relevance">0.00</div>
+                                    <div class="guard-status" id="status-relevance">Passed</div>
+                                </div>
+                                <div class="guard-card" id="guard-faithfulness">
+                                    <div class="guard-header">
+                                        <i class="fa-solid fa-shield-check"></i> Faithfulness
+                                    </div>
+                                    <div class="guard-value" id="val-faithfulness">0.00</div>
+                                    <div class="guard-status" id="status-faithfulness">Passed</div>
+                                </div>
+                                <div class="guard-card" id="guard-citation">
+                                    <div class="guard-header">
+                                        <i class="fa-solid fa-quote-right"></i> Citations
+                                    </div>
+                                    <div class="guard-value" id="val-citation">Valid</div>
+                                    <div class="guard-status" id="status-citation">Passed</div>
+                                </div>
+                            </div>
+
+                            <!-- Source Documents Accordion -->
+                            <div class="sources-container">
+                                <div class="sources-header">
+                                    <h4><i class="fa-solid fa-layer-group"></i> Retrieved Source Chunks (<span id="sources-count">0</span>)</h4>
+                                </div>
+                                <div class="sources-list" id="sources-list"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- TAB 2: HEAL LOOP CONTROL -->
+            <section class="tab-pane" id="tab-healer">
+                <div class="pane-header">
+                    <h2><i class="fa-solid fa-wand-magic-sparkles"></i> Autonomous Heal Loop</h2>
+                    <p>Diagnose retrieval & grounding failures, simulate candidate repairs in a sandbox, and deploy zero-regression patches.</p>
+                </div>
+
+                <div class="healer-layout">
+                    <!-- Heal Trigger Panel -->
+                    <div class="glass-card healer-input-card">
+                        <form id="form-heal-query">
+                            <div class="form-group">
+                                <label for="input-heal-query"><i class="fa-solid fa-bug"></i> Target Query to Self-Heal</label>
+                                <textarea id="input-heal-query" rows="3" placeholder="Enter query experiencing retrieval or grounding issues..." required>What are the exact parameter bounds for vector weights in Reciprocal Rank Fusion?</textarea>
+                            </div>
+                            <button type="submit" class="btn btn-accent" id="btn-trigger-heal">
+                                <i class="fa-solid fa-play"></i> Execute Heal Loop
+                            </button>
+                        </form>
+
+                        <div class="heal-info-box">
+                            <h4><i class="fa-solid fa-circle-info"></i> How the Heal Loop Works:</h4>
+                            <ol>
+                                <li><strong>Taxonomy Classification:</strong> Detects failure severity (Critical, High, Medium).</li>
+                                <li><strong>Heuristic Diagnosis:</strong> Infers root cause (vocabulary gap, threshold drift, etc.).</li>
+                                <li><strong>Sandboxed Simulation:</strong> Tests candidate repairs without touching live traffic.</li>
+                                <li><strong>Regression Gate:</strong> Promotes repair if quality improves by &ge; 2%.</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <!-- Heal Output / Audit Panel -->
+                    <div class="glass-card healer-result-card">
+                        <h3><i class="fa-solid fa-clipboard-check"></i> Heal Cycle Execution Result</h3>
+                        
+                        <div class="result-placeholder" id="heal-placeholder">
+                            <i class="fa-solid fa-gears placeholder-icon"></i>
+                            <p>Click "Execute Heal Loop" to run diagnosis, candidate strategy selection, sandbox evaluation, and deployment decision.</p>
+                        </div>
+
+                        <div class="loading-state hidden" id="heal-loading">
+                            <div class="spinner"></div>
+                            <p>Running autonomous Heal Loop (Diagnose &rarr; Candidate Permutations &rarr; Sandbox Gate)...</p>
+                        </div>
+
+                        <div class="heal-result-content hidden" id="heal-result-content">
+                            <div class="heal-summary-banner" id="heal-outcome-banner">
+                                <div class="outcome-badge" id="outcome-badge">DEPLOYED</div>
+                                <div class="outcome-details">
+                                    <span class="outcome-title" id="outcome-title">Candidate Repair Promoted</span>
+                                    <span class="outcome-sub" id="outcome-sub">Strategy applied to active engine configuration.</span>
+                                </div>
+                            </div>
+
+                            <div class="heal-metrics-grid">
+                                <div class="hm-card">
+                                    <span class="hm-label">Applied Strategy</span>
+                                    <span class="hm-value" id="hm-strategy">rewrite_query</span>
+                                </div>
+                                <div class="hm-card">
+                                    <span class="hm-label">Original Score</span>
+                                    <span class="hm-value" id="hm-orig-score">0.42</span>
+                                </div>
+                                <div class="hm-card">
+                                    <span class="hm-label">Repaired Score</span>
+                                    <span class="hm-value highlight" id="hm-repaired-score">0.89</span>
+                                </div>
+                                <div class="hm-card">
+                                    <span class="hm-label">Improvement Delta</span>
+                                    <span class="hm-value delta-positive" id="hm-delta">+47.0%</span>
+                                </div>
+                            </div>
+
+                            <div class="diagnosis-box">
+                                <h4><i class="fa-solid fa-stethoscope"></i> Diagnostic Report:</h4>
+                                <div class="diag-text" id="diag-text">Low semantic context match detected. Query expanded with domain jargon.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- TAB 3: CORPUS INGESTION -->
+            <section class="tab-pane" id="tab-ingest">
+                <div class="pane-header">
+                    <h2><i class="fa-solid fa-file-arrow-up"></i> Document & Corpus Ingestion</h2>
+                    <p>Index text, markdown, or PDF documents into dual-path Dense Chroma Vector Store + Sparse BM25 Store.</p>
+                </div>
+
+                <div class="ingest-layout">
+                    <!-- Direct Upload Card -->
+                    <div class="glass-card ingest-upload-card">
+                        <h3><i class="fa-solid fa-cloud-arrow-up"></i> Upload Single File</h3>
+                        <form id="form-upload-file">
+                            <div class="drop-zone" id="drop-zone">
+                                <i class="fa-solid fa-file-lines drop-icon"></i>
+                                <p>Drag and drop a <strong>.txt</strong>, <strong>.md</strong>, or <strong>.pdf</strong> file here</p>
+                                <span class="or-divider">OR</span>
+                                <label for="input-file-select" class="btn btn-secondary">Browse Files</label>
+                                <input type="file" id="input-file-select" accept=".txt,.md,.pdf" class="hidden-input">
+                                <div class="file-name-preview" id="file-name-preview">No file selected</div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary btn-full" id="btn-upload-file" disabled>
+                                <i class="fa-solid fa-bolt"></i> Upload & Index Immediately
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Directory Batch Ingestion Card -->
+                    <div class="glass-card ingest-batch-card">
+                        <h3><i class="fa-solid fa-folder-open"></i> Ingest Directory from Disk</h3>
+                        <form id="form-ingest-dir">
+                            <div class="form-group">
+                                <label for="input-ingest-dir">Directory Path on Server:</label>
+                                <input type="text" id="input-ingest-dir" value="data/sample_docs" required>
+                            </div>
+                            <button type="submit" class="btn btn-secondary" id="btn-ingest-dir">
+                                <i class="fa-solid fa-arrows-rotate"></i> Batch Index Directory
+                            </button>
+                        </form>
+
+                        <div class="ingest-status-box" id="ingest-status-box">
+                            <div class="status-placeholder">Run an ingestion job above to view index updates.</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- TAB 4: TELEMETRY & HEALTH -->
+            <section class="tab-pane" id="tab-telemetry">
+                <div class="pane-header">
+                    <h2><i class="fa-solid fa-chart-line"></i> Real-Time Telemetry & Health</h2>
+                    <p>Continuous operational status, drift monitor metrics, and auto-tuning overview.</p>
+                </div>
+
+                <div class="telemetry-grid">
+                    <div class="glass-card stat-card">
+                        <div class="stat-header"><i class="fa-solid fa-gauge-high"></i> Engine Health Score</div>
+                        <div class="stat-number glow-green" id="tele-health-score">--%</div>
+                        <div class="stat-sub">Composite Reliability Score</div>
+                    </div>
+                    <div class="glass-card stat-card">
+                        <div class="stat-header"><i class="fa-solid fa-stopwatch"></i> Avg Latency</div>
+                        <div class="stat-number" id="tele-avg-latency">-- ms</div>
+                        <div class="stat-sub">Includes HyBRid + Rerank</div>
+                    </div>
+                    <div class="glass-card stat-card">
+                        <div class="stat-header"><i class="fa-solid fa-triangle-exclamation"></i> Hallucination Risk</div>
+                        <div class="stat-number glow-cyan" id="tele-hallucination-risk">0.0%</div>
+                        <div class="stat-sub">Based on NLI Entailment</div>
+                    </div>
+                    <div class="glass-card stat-card">
+                        <div class="stat-header"><i class="fa-solid fa-bolt"></i> Total Queries</div>
+                        <div class="stat-number" id="tele-total-queries">0</div>
+                        <div class="stat-sub">Logged in Telemetry Tracer</div>
+                    </div>
+                </div>
+
+                <div class="glass-card telemetry-details-card">
+                    <div class="card-header-row">
+                        <h3><i class="fa-solid fa-sliders"></i> Drift Assessment & Hyperparameter State</h3>
+                        <button class="btn btn-secondary btn-sm" onclick="fetchTelemetryData()">
+                            <i class="fa-solid fa-rotate"></i> Refresh Telemetry
+                        </button>
+                    </div>
+
+                    <div class="code-preview-box" id="telemetry-json">
+                        <pre><code>Loading telemetry summary...</code></pre>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- TAB 5: ROLLBACK SNAPSHOTS -->
+            <section class="tab-pane" id="tab-checkpoints">
+                <div class="pane-header">
+                    <h2><i class="fa-solid fa-clock-rotate-left"></i> Checkpoint History & Rollback</h2>
+                    <p>Atomic SQLite snapshots of healthy hyperparameter states for instant rollback.</p>
+                </div>
+
+                <div class="glass-card checkpoints-card">
+                    <div class="card-header-row">
+                        <h3><i class="fa-solid fa-database"></i> Recent Configuration Snapshots</h3>
+                        <button class="btn btn-secondary btn-sm" onclick="fetchCheckpoints()">
+                            <i class="fa-solid fa-rotate"></i> Refresh List
+                        </button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="checkpoints-table">
+                            <thead>
+                                <tr>
+                                    <th>Checkpoint ID</th>
+                                    <th>Timestamp</th>
+                                    <th>Trigger Reason</th>
+                                    <th>Parameters</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="checkpoints-table-body">
+                                <tr>
+                                    <td colspan="5" class="text-center">Loading checkpoints...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- App JavaScript -->
+    <script src="/static/app.js"></script>
+</body>
+</html>

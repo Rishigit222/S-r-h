@@ -26,8 +26,10 @@ import dataclasses
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
-from fastapi import FastAPI, HTTPException, UploadFile, File
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException, UploadFile, File, Request
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from src.config import settings
@@ -87,6 +89,30 @@ app = FastAPI(
     version="5.0.0",
     lifespan=lifespan,
 )
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+static_path = Path(__file__).parent.parent.parent / "static"
+if static_path.exists():
+    app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+
+
+@app.get("/", include_in_schema=False)
+async def serve_dashboard(request: Request):
+    accept = request.headers.get("accept", "")
+    # Browser navigation requests explicitly include text/html in Accept header
+    if "text/html" in accept:
+        index_file = static_path / "index.html"
+        if index_file.exists():
+            return FileResponse(index_file)
+    return {"engine": "Self-Healing RAG Engine", "status": "running"}
+
 
 
 # Stores
